@@ -1,0 +1,109 @@
+@import 'tailwindcss';
+@import '@fontsource/instrument-serif/400.css';
+@import '@fontsource/instrument-serif/400-italic.css';
+@import '@fontsource/hanken-grotesk/400.css';
+@import '@fontsource/hanken-grotesk/500.css';
+@import '@fontsource/hanken-grotesk/600.css';
+@import '@fontsource/hanken-grotesk/700.css';
+
+/*
+ * Every text/background pair below meets WCAG AA (4.5:1). Coral (accent) is 3.4:1 on paper, so it is
+ * kept for the record button and decoration only; accent-ink is the coral to use for text.
+ */
+@theme {
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-sans: 'Hanken Grotesk', 'Segoe UI', system-ui, sans-serif;
+
+  --color-paper: #f8f4ec;
+  --color-surface: #fffdf8;
+  --color-sunken: #efe8db;
+  --color-ink: #211a26;
+  --color-muted: #5e5562;
+  --color-line: #e4dccd;
+  --color-line-strong: #cbbfab;
+  --color-margin: #e9b8ad;
+
+  --color-brand: #3d2a4a;
+  --color-brand-strong: #2a1c34;
+  --color-brand-tint: #ece3ef;
+  --color-accent: #e2583e;
+  --color-accent-ink: #b23c24;
+
+  --color-positive: #3c6b4c;
+  --color-positive-tint: #e4eee6;
+  --color-neutral: #5f5a4e;
+  --color-neutral-tint: #ece8df;
+  --color-negative: #9b3a2c;
+  --color-negative-tint: #f6e4e0;
+
+  --color-danger: #a3301f;
+  --color-danger-tint: #f8e5e1;
+  --color-warn: #86560a;
+  --color-warn-tint: #f7ecd6;
+
+  --radius-card: 0.625rem;
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    min-height: 100dvh;
+    background: var(--color-paper);
+    overflow-wrap: break-word;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.005em;
+    line-height: 1.1;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: var(--color-brand-tint);
+  }
+}
+
+/* Notebook ruling for the landing page's sample note. */
+.ruled {
+  background-image: linear-gradient(to bottom, transparent calc(1.75rem - 1px), var(--color-line) calc(1.75rem - 1px));
+  background-size: 100% 1.75rem;
+  line-height: 1.75rem;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200px 0;
+  }
+  to {
+    background-position: 200px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--color-sunken) 0, #f6f0e5 50%, var(--color-sunken) 100%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
