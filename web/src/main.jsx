@@ -13,6 +13,8 @@ const Landing = lazy(() => import('./pages/public/Landing'))
 const Login = lazy(() => import('./pages/public/Login'))
 const Register = lazy(() => import('./pages/public/Register'))
 const Terms = lazy(() => import('./pages/public/Terms'))
+const Record = lazy(() => import('./pages/app/Record'))
+const Notes = lazy(() => import('./pages/app/Notes'))
 const Clients = lazy(() => import('./pages/app/Clients'))
 const ClientForm = lazy(() => import('./pages/app/ClientForm'))
 const Team = lazy(() => import('./pages/app/Team'))
@@ -63,7 +65,9 @@ const router = createBrowserRouter([
           </RequireAuth>
         ),
         children: [
-          { index: true, element: <Navigate to="/app/clients" replace /> },
+          { index: true, element: <Navigate to="/app/record" replace /> },
+          { path: 'record', element: <Page><Record /></Page> },
+          { path: 'notes', element: <Page><Notes /></Page> },
           { path: 'clients', element: <Page><Clients /></Page> },
           { path: 'clients/new', element: <Page><ClientForm /></Page> },
           { path: 'clients/:id', element: <Page><ClientForm /></Page> },

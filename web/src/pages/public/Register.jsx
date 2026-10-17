@@ -16,7 +16,7 @@ export default function Register() {
   const [message, setMessage] = useState(null)
   const [busy, setBusy] = useState(false)
 
-  if (status === 'authed' && !busy) return <Navigate to="/app/clients" replace />
+  if (status === 'authed' && !busy) return <Navigate to="/app/record" replace />
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
 
@@ -28,7 +28,7 @@ export default function Register() {
     try {
       const res = await api.post('/auth/register', form)
       signIn(res.data.token, res.data.user)
-      navigate('/app/clients', { replace: true })
+      navigate('/app/record', { replace: true })
     } catch (err) {
       const fields = fieldErrors(err)
       setErrors(fields)

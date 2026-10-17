@@ -19,7 +19,7 @@ export default function PublicLayout() {
           </Link>
           <nav aria-label="Account" className="flex items-center gap-1 text-sm font-semibold">
             {status === 'authed' ? (
-              <Link to="/app/clients" className="rounded-lg px-3 py-2 text-brand hover:bg-sunken">
+              <Link to="/app/record" className="rounded-lg px-3 py-2 text-brand hover:bg-sunken">
                 Open app
               </Link>
             ) : (

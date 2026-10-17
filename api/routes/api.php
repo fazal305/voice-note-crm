@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\VoiceNoteController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => ['status' => 'ok']);
@@ -24,6 +25,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/clients/{client}', [ClientController::class, 'show']);
         Route::put('/clients/{client}', [ClientController::class, 'update']);
         Route::delete('/clients/{client}', [ClientController::class, 'destroy']);
+    });
+
+    Route::get('/voice-notes', [VoiceNoteController::class, 'index']);
+    Route::post('/voice-notes', [VoiceNoteController::class, 'store'])->middleware('throttle:uploads');
+    Route::whereNumber('voiceNote')->group(function () {
+        Route::get('/voice-notes/{voiceNote}', [VoiceNoteController::class, 'show']);
+        Route::get('/voice-notes/{voiceNote}/audio', [VoiceNoteController::class, 'audio']);
+        Route::delete('/voice-notes/{voiceNote}', [VoiceNoteController::class, 'destroy']);
     });
 
     Route::middleware('can:manage-team')->prefix('team')->group(function () {

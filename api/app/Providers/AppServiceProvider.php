@@ -55,5 +55,13 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by('demo-min:'.$request->ip())->response($tooMany),
             Limit::perDay(60)->by('demo-day:'.$request->ip())->response($tooMany),
         ]);
+
+        // Per user, plus a looser per-IP cap so one office's reps behind a shared IP aren't blocked by each other.
+        RateLimiter::for('uploads', fn (Request $request) => [
+            Limit::perMinute(10)->by('upload-user-min:'.$request->user()?->id)->response($tooMany),
+            Limit::perDay(100)->by('upload-user-day:'.$request->user()?->id)->response($tooMany),
+            Limit::perMinute(30)->by('upload-ip-min:'.$request->ip())->response($tooMany),
+            Limit::perDay(300)->by('upload-ip-day:'.$request->ip())->response($tooMany),
+        ]);
     }
 }

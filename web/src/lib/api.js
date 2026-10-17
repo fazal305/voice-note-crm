@@ -56,6 +56,7 @@ export function errorMessage(error, fallback = 'Something went wrong. Please try
   if (status === 401) return 'Your session has expired. Please sign in again.'
   if (status === 403) return data?.message || "You don't have permission to do that."
   if (status === 404) return data?.message && data.message !== 'Not Found.' ? data.message : 'That item no longer exists.'
+  if (status === 413) return data?.message || 'That file is too large.'
   if (status === 422) return data?.message || 'Please fix the highlighted fields.'
   if (status === 429) return data?.message || 'Too many requests. Please wait a minute and try again.'
   return fallback

@@ -6,6 +6,8 @@ import { useAuth } from '../lib/auth'
 import Forbidden from '../pages/public/Forbidden'
 
 const NAV = [
+  { to: '/app/record', label: 'Record', icon: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21' },
+  { to: '/app/notes', label: 'Notes', icon: 'M7 3.5h10A1.5 1.5 0 0 1 18.5 5v14a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5M9 8.5h6M9 12h6M9 15.5h3.5' },
   { to: '/app/clients', label: 'Clients', icon: 'M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 10.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6M20 19v-1.5a3.5 3.5 0 0 0-2.5-3.4M15.5 4.6a3 3 0 0 1 0 5.8' },
   { to: '/app/team', label: 'Team', managerOnly: true, icon: 'M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6zM9.5 12l2 2 3.5-4' },
 ]
@@ -64,7 +66,7 @@ export default function AppLayout() {
       </a>
 
       <aside className="hidden border-r border-line bg-surface/70 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col">
-        <Link to="/app/clients" className="px-5 py-5" aria-label="Voice Note CRM clients">
+        <Link to="/app/record" className="px-5 py-5" aria-label="Voice Note CRM home">
           <Wordmark />
         </Link>
         <nav aria-label="Main" className="flex-1 space-y-1 px-3">
@@ -95,7 +97,7 @@ export default function AppLayout() {
       <div className="flex min-w-0 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
         <OfflineBanner />
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-line bg-paper/90 px-4 py-3 backdrop-blur sm:px-6 lg:hidden">
-          <Link to="/app/clients" aria-label="Voice Note CRM clients" className="flex min-w-0 items-center gap-2.5">
+          <Link to="/app/record" aria-label="Voice Note CRM home" className="flex min-w-0 items-center gap-2.5">
             <LogoMark />
             <span className="truncate text-sm text-muted">
               {user?.name} · {roleLabel}

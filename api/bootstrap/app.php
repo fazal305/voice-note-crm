@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -25,6 +26,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+        $exceptions->render(fn (PostTooLargeException $e, Request $request) => $request->is('api/*')
+            ? response()->json(['message' => 'That file is too large. The limit is 25 MB.'], 413)
+            : null);
         // A missing record and another organization's record answer identically, so ids can't be probed and model names don't leak.
         $exceptions->render(fn (HttpExceptionInterface $e, Request $request) => $e->getStatusCode() === 404
             && $request->is('api/*')

@@ -16,7 +16,7 @@ export function DemoButtons() {
     try {
       const res = await api.post('/demo/login', { role })
       signIn(res.data.token, res.data.user)
-      navigate('/app/clients')
+      navigate('/app/record')
     } catch (err) {
       setError(err.response?.status === 404 ? 'The demo is not available right now.' : errorMessage(err))
       setBusy(null)

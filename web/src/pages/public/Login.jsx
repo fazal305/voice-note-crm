@@ -15,7 +15,7 @@ export default function Login() {
   const [message, setMessage] = useState(null)
   const [busy, setBusy] = useState(false)
 
-  if (status === 'authed' && !busy) return <Navigate to="/app/clients" replace />
+  if (status === 'authed' && !busy) return <Navigate to="/app/record" replace />
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
 
@@ -27,7 +27,7 @@ export default function Login() {
     try {
       const res = await api.post('/auth/login', form)
       signIn(res.data.token, res.data.user)
-      navigate(location.state?.from || '/app/clients', { replace: true })
+      navigate(location.state?.from || '/app/record', { replace: true })
     } catch (err) {
       const fields = fieldErrors(err)
       setErrors(fields)
