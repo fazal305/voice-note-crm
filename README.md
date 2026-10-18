@@ -2,7 +2,7 @@
 
 Voice Note CRM lets a sales rep record a quick spoken debrief after a client call and turns it into a call log: a summary, the client's sentiment, action items, a follow-up date and tasks. The rep checks and edits everything before it is saved, and a manager sees the team's calls, tasks and follow-ups on one dashboard.
 
-**Live demo:** https://voice-note-crm.vercel.app (choose "Try the demo as a rep" or "Try it as a manager"; no sign-up or password needed). The demo is a shared organization with made-up clients, and anything uploaded there is deleted after 24 hours. The API runs on Render's free tier, which sleeps when idle, so the first request after a quiet spell can take about a minute.
+**Live demo:** https://voice-note-crm.vercel.app (choose "Try the demo as a rep" or "Try it as a manager", or sign in with the [demo accounts](#demo-accounts) below; no sign-up needed). The demo is a shared organization with made-up clients, and anything uploaded there is deleted after 24 hours. The API runs on Render's free tier, which sleeps when idle, so the first request after a quiet spell can take about a minute.
 
 ![Reviewing a parsed voice note: summary, sentiment, action items and follow-up date, all editable before saving](docs/screenshots/note-review-desktop.png)
 
@@ -114,6 +114,7 @@ cd web && npm run lint && npm run build
 | `FRONTEND_URL` | Origin(s) of the web app, comma-separated. Used for CORS |
 | `SANCTUM_EXPIRATION` | API token lifetime in minutes (default 7 days) |
 | `DEMO_LOGIN_ENABLED` | Offer the one-click demo sign-in (default `true`) |
+| `DEMO_PASSWORD` | Optional shared password for the demo accounts so they can use the login form (unset: random, unusable passwords) |
 | `AUDIO_DISK` | `local` (`storage/app/private/audio`) or `s3` |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET`, `AWS_ENDPOINT`, `AWS_USE_PATH_STYLE_ENDPOINT` | The bucket for `AUDIO_DISK=s3`. Any S3-compatible storage works, for example Supabase Storage's S3 endpoint |
 | `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL` | Any OpenAI-compatible `/audio/transcriptions` endpoint (default Groq, `whisper-large-v3-turbo`). Empty key: notes wait for a typed transcript |
@@ -129,7 +130,16 @@ cd web && npm run lint && npm run build
 
 ## Demo accounts
 
-There are no demo passwords. `php artisan db:seed` creates a demo organization with a manager, a rep and six made-up clients; the "Try the demo" buttons sign in as one of them through `POST /api/demo/login`. The demo accounts have random passwords that are never stored or shown. Set `DEMO_LOGIN_ENABLED=false` to turn the demo off.
+On the live demo you can sign in through the normal login form with these shared accounts, or skip the form with the "Try the demo" buttons, which sign in as the same users through `POST /api/demo/login`:
+
+| Role | Email | Password | What you can try |
+|---|---|---|---|
+| Manager | `manager@demo.invalid` | `voice-demo-2026` | Team dashboard, the team list and the prompt settings (view only) |
+| Rep | `rep@demo.invalid` | `voice-demo-2026` | Record voice notes, review notes and call logs, tasks, clients |
+
+These credentials are public on purpose. The demo is one shared organization with made-up clients: everyone trying it sees the same data, notes and tasks are deleted after 24 hours, and team and prompt changes are turned off.
+
+`php artisan db:seed` creates the demo organization with a manager, a rep and six made-up clients. The demo accounts use `DEMO_PASSWORD` when it is set (the seeder re-applies it on every run); otherwise they get random passwords that are never stored or shown, and only the demo buttons can sign in. Set `DEMO_LOGIN_ENABLED=false` to turn the demo buttons off.
 
 Because the demo is shared, `voice-notes:prune-demo` deletes demo-organization notes (with their audio and call logs) and tasks older than 24 hours. It runs hourly on the Laravel scheduler (`php artisan schedule:work`, or `* * * * * php artisan schedule:run`). On hosts without cron, the `Demo cleanup` GitHub Actions workflow calls `POST /api/cron/run` hourly with `Authorization: Bearer $CRON_SECRET`; set the repository variable `API_URL` and secret `CRON_SECRET` to enable it.
 

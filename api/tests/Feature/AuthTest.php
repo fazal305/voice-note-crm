@@ -184,4 +184,37 @@ class AuthTest extends TestCase
         $this->assertSame(2, $org->users()->count());
         $this->assertSame(6, $org->clients()->count());
     }
+
+    public function test_demo_password_lets_demo_accounts_use_the_login_form(): void
+    {
+        config(['services.demo.password' => 'demo-pass-for-tests']);
+        $this->seed(DemoSeeder::class);
+
+        foreach (['manager@demo.invalid' => 'manager', 'rep@demo.invalid' => 'rep'] as $email => $role) {
+            $this->postJson('/api/auth/login', ['email' => $email, 'password' => 'demo-pass-for-tests'])
+                ->assertOk()
+                ->assertJsonPath('user.role', $role)
+                ->assertJsonPath('user.organization.is_demo', true);
+        }
+
+        // Re-running leaves a matching password alone and restores a changed one.
+        $hash = User::firstWhere('email', 'rep@demo.invalid')->password;
+        $this->seed(DemoSeeder::class);
+        $this->assertSame($hash, User::firstWhere('email', 'rep@demo.invalid')->password);
+
+        User::firstWhere('email', 'manager@demo.invalid')->update(['password' => 'someone-else-changed-it']);
+        $this->seed(DemoSeeder::class);
+        $this->postJson('/api/auth/login', ['email' => 'manager@demo.invalid', 'password' => 'demo-pass-for-tests'])->assertOk();
+        $this->assertSame(2, Organization::where('is_demo', true)->sole()->users()->count());
+    }
+
+    public function test_demo_accounts_cannot_use_the_login_form_without_a_demo_password(): void
+    {
+        $this->seed(DemoSeeder::class);
+
+        $this->postJson('/api/auth/login', ['email' => 'rep@demo.invalid', 'password' => ''])->assertUnprocessable();
+        $this->postJson('/api/auth/login', ['email' => 'rep@demo.invalid', 'password' => 'demo-pass-for-tests'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
+    }
 }

@@ -37,6 +37,8 @@ return [
 
     'demo' => [
         'login_enabled' => (bool) env('DEMO_LOGIN_ENABLED', true),
+        // Optional shared password for the demo accounts, so they can also sign in through the login form.
+        'password' => env('DEMO_PASSWORD'),
     ],
 
     // Speech to text through any OpenAI-compatible /audio/transcriptions endpoint (Groq's Whisper by default).

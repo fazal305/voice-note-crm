@@ -7,11 +7,13 @@ use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
  * The shared demo organization behind POST /api/demo/login. Every name and company is made up.
- * The demo accounts get random passwords that are never stored or shown: the demo endpoint signs in without one.
+ * With DEMO_PASSWORD set, both demo accounts use it (re-applied on every run) so visitors can also use the login form.
+ * Without it they get random passwords that are never stored or shown: the demo endpoint signs in without one.
  */
 class DemoSeeder extends Seeder
 {
@@ -49,11 +51,18 @@ class DemoSeeder extends Seeder
 
     private function account(Organization $org, UserRole $role, string $name, string $email): void
     {
-        if (User::where('email', $email)->exists()) {
+        $password = config('services.demo.password');
+        $user = User::where('email', $email)->first();
+
+        if ($user) {
+            if (filled($password) && ! Hash::check($password, $user->password)) {
+                $user->update(['password' => $password]);
+            }
+
             return;
         }
 
-        $user = new User(['name' => $name, 'email' => $email, 'password' => Str::random(40)]);
+        $user = new User(['name' => $name, 'email' => $email, 'password' => filled($password) ? $password : Str::random(40)]);
         $user->forceFill(['org_id' => $org->id, 'role' => $role, 'terms_accepted_at' => now()])->save();
     }
 }
