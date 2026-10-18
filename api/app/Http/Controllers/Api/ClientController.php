@@ -45,7 +45,7 @@ class ClientController extends Controller
             ->withCasts(['last_contact_at' => 'datetime'])
             ->when($search !== '', function ($query) use ($search) {
                 $like = '%'.addcslashes($search, '\%_').'%';
-                $query->where(fn ($q) => $q->where('name', 'like', $like)->orWhere('company', 'like', $like));
+                $query->where(fn ($q) => $q->whereLike('name', $like)->orWhereLike('company', $like));
             })
             ->when($request->boolean('needs_follow_up'), fn ($query) => $query
                 ->where($this->latestLog($user, 'follow_up_at'), '<', $this->today($request->query('today'))))

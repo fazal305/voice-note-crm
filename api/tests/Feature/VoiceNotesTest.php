@@ -8,6 +8,7 @@ use App\Models\VoiceNote;
 use App\Services\AudioVault;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -341,6 +342,12 @@ class VoiceNotesTest extends TestCase
 
     public function test_a_concurrent_duplicate_returns_the_note_that_won_and_drops_the_extra_audio(): void
     {
+        if (DB::getDriverName() === 'pgsql') {
+            // The simulated race fails inside RefreshDatabase's transaction, which PostgreSQL then aborts.
+            // A real request runs outside a transaction, so its lookup after the violation still works.
+            $this->markTestSkipped('Needs a database that keeps a transaction usable after a unique violation.');
+        }
+
         $rep = User::factory()->create();
         $uploadId = (string) Str::uuid();
         $other = $this->noteFor($rep);
