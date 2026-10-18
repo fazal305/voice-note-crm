@@ -79,14 +79,26 @@ class AuthTest extends TestCase
 
     public function test_login_returns_a_token(): void
     {
-        User::factory()->create(['email' => 'rep@example.com', 'password' => 'secret-pass-1']);
+        $user = User::factory()->create(['email' => 'rep@example.com', 'password' => 'secret-pass-1']);
 
         $token = $this->postJson('/api/auth/login', ['email' => 'REP@example.com', 'password' => 'secret-pass-1'])
             ->assertOk()
             ->assertJsonPath('user.role', 'rep')
             ->json('token');
 
-        $this->withToken($token)->getJson('/api/me')->assertOk()->assertJsonPath('user.email', 'rep@example.com');
+        $this->withToken($token)->getJson('/api/me')->assertOk()
+            ->assertJsonPath('user.email', 'rep@example.com')
+            ->assertJsonPath('user.device_key', $user->toProfile()['device_key'])
+            ->assertJsonMissingPath('user.id');
+    }
+
+    public function test_device_key_is_stable_per_user_and_differs_between_users(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+
+        $this->assertSame($user->toProfile()['device_key'], $user->fresh()->toProfile()['device_key']);
+        $this->assertNotSame($user->toProfile()['device_key'], $other->toProfile()['device_key']);
     }
 
     public function test_login_failures_share_one_generic_message(): void

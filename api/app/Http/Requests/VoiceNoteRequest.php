@@ -46,6 +46,7 @@ class VoiceNoteRequest extends FormRequest
             'audio' => ['required', 'file', 'max:'.self::MAX_KILOBYTES, $this->audioContents(...)],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('org_id', $this->user()->org_id)],
             'duration_seconds' => ['nullable', 'integer', 'min:0', 'max:14400'],
+            'client_upload_id' => ['nullable', 'uuid'],
         ];
     }
 
@@ -58,6 +59,7 @@ class VoiceNoteRequest extends FormRequest
             'audio.max' => 'That file is larger than 25 MB.',
             'client_id.exists' => 'Choose a client from your organization.',
             'source.in' => 'Unknown audio source.',
+            'client_upload_id.uuid' => 'The upload id is not valid.',
         ];
     }
 

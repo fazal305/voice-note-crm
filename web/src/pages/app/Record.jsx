@@ -1,12 +1,14 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ClientPicker } from '../../components/ClientPicker'
-import { Alert, Button, Card, PageHeader, Skeleton, Spinner } from '../../components/ui'
+import { Alert, Button, Card, LinkButton, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import { Waveform } from '../../components/Waveform'
 import { MAX_RECORDING_SECONDS, useRecorder } from '../../hooks/useRecorder'
-import { useDocumentTitle, useResource } from '../../hooks/useResource'
+import { useDocumentTitle, useOnline, useResource } from '../../hooks/useResource'
 import { api, errorMessage, fieldErrors } from '../../lib/api'
 import { formatBytes, formatDay, formatDuration, localToday } from '../../lib/format'
+import { isRetryable, QueueFullError, sendVoiceNote } from '../../lib/pendingUploads'
+import { useUploadQueue } from '../../lib/uploadQueue'
 
 const MAX_BYTES = 25 * 1024 * 1024
 const UPLOAD_EXTENSIONS = ['mp3', 'wav', 'm4a']
@@ -123,6 +125,11 @@ function HomeSummary() {
         <span className="sr-only" role="status">
           Loading your summary…
         </span>
+        {summary.slow && (
+          <Alert tone="warn" className="mb-4">
+            This is taking longer than usual. Your connection may be slow — we&apos;re still trying.
+          </Alert>
+        )}
         <Skeleton className="h-28" />
       </div>
     )
@@ -379,39 +386,111 @@ function FilePicker({ inputRef, disabled, onChoose }) {
   )
 }
 
+const SLOW_UPLOAD_BYTES_PER_SECOND = 24 * 1024
+
 function Review({ clip, presetClient, onDiscard, onSaved }) {
+  const queue = useUploadQueue()
+  const online = useOnline()
+  // One id per clip: a retry of this same note (now or from the device queue) never creates a second one.
+  const [clientUploadId] = useState(() => crypto.randomUUID())
   const [clientId, setClientId] = useState(presetClient ? String(presetClient.id) : '')
+  const [clientName, setClientName] = useState(presetClient?.name ?? null)
   const [measured, setMeasured] = useState(null)
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [slow, setSlow] = useState(false)
   const [errors, setErrors] = useState({})
   const [message, setMessage] = useState(null)
+  const [saved, setSaved] = useState(false)
   const duration = clip.duration ?? measured
+
+  const saveOnDevice = async () => {
+    try {
+      await queue.enqueue({
+        id: clientUploadId,
+        blob: clip.blob,
+        mime: clip.blob.type,
+        source: clip.source,
+        durationSeconds: duration != null && Number.isFinite(duration) ? Math.round(duration) : null,
+        clientId: clientId || null,
+        clientName: clientId ? clientName : null,
+        originalName: clip.name,
+      })
+      setSaved(true)
+    } catch (err) {
+      setMessage(
+        err instanceof QueueFullError
+          ? err.message
+          : "We couldn't upload the note or save it on this device. Keep this page open and try again when you're back online.",
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const upload = async () => {
     setBusy(true)
     setProgress(0)
+    setSlow(false)
     setErrors({})
     setMessage(null)
-    const form = new FormData()
-    form.append('audio', clip.blob, clip.name)
-    form.append('source', clip.source)
-    if (clientId) form.append('client_id', clientId)
-    if (duration != null && Number.isFinite(duration)) form.append('duration_seconds', String(Math.round(duration)))
+    if (navigator.onLine === false) {
+      await saveOnDevice()
+      return
+    }
+    const startedAt = performance.now()
+    let loaded = 0
+    // Checked on a timer too, so a stalled upload that sends no progress events still counts as slow.
+    const watch = setInterval(() => {
+      const seconds = (performance.now() - startedAt) / 1000
+      if (seconds > 6 && loaded / seconds < SLOW_UPLOAD_BYTES_PER_SECOND) setSlow(true)
+    }, 2000)
     try {
-      const res = await api.post('/voice-notes', form, {
-        timeout: 5 * 60 * 1000,
-        onUploadProgress: (e) => {
-          if (e.total) setProgress(Math.round((e.loaded / e.total) * 100))
+      const res = await sendVoiceNote(
+        { blob: clip.blob, name: clip.name, source: clip.source, clientId, durationSeconds: duration, clientUploadId },
+        {
+          onUploadProgress: (e) => {
+            loaded = e.loaded
+            if (e.total) setProgress(Math.round((e.loaded / e.total) * 100))
+          },
         },
-      })
+      )
       onSaved(res.data.data)
     } catch (err) {
+      // Network errors, timeouts and server errors go to the device queue; refusals (422, 429…) show here as before.
+      if (isRetryable(err)) {
+        await saveOnDevice()
+        return
+      }
       const fields = fieldErrors(err)
       setErrors(fields)
       setMessage(fields.audio || fields.source || fields.duration_seconds || (fields.client_id ? null : errorMessage(err)))
       setBusy(false)
+    } finally {
+      clearInterval(watch)
     }
+  }
+
+  if (saved) {
+    const waiting = queue.entries.length
+    return (
+      <Card className="p-6 sm:p-8">
+        <Alert tone="success" title="Saved on this device — we'll upload it when you're back online">
+          {waiting > 1 ? `${waiting} notes are waiting to upload.` : 'It uploads by itself as soon as the connection is back.'}
+        </Alert>
+        {!queue.persistent && (
+          <Alert tone="warn" className="mt-4">
+            This browser won&apos;t let us store the note on the device, so it&apos;s only kept until you close or reload this tab.
+          </Alert>
+        )}
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Button onClick={onDiscard}>Record another note</Button>
+          <LinkButton variant="secondary" to="/app/notes">
+            See notes waiting to upload
+          </LinkButton>
+        </div>
+      </Card>
+    )
   }
 
   return (
@@ -434,7 +513,16 @@ function Review({ clip, presetClient, onDiscard, onSaved }) {
       </audio>
 
       <div className="mt-6">
-        <ClientPicker value={clientId} onChange={setClientId} selected={presetClient} error={errors.client_id} disabled={busy} />
+        <ClientPicker
+          value={clientId}
+          onChange={(value, client) => {
+            setClientId(value)
+            setClientName(client?.name ?? null)
+          }}
+          selected={presetClient}
+          error={errors.client_id}
+          disabled={busy}
+        />
       </div>
 
       {message && (
@@ -452,12 +540,23 @@ function Review({ clip, presetClient, onDiscard, onSaved }) {
           <div role="progressbar" aria-label="Upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="mt-1.5 h-2 overflow-hidden rounded-full bg-sunken">
             <div className="h-full rounded-full bg-brand transition-[width]" style={{ width: `${progress}%` }} />
           </div>
+          {slow && (
+            <p className="mt-2 text-sm text-warn" role="status">
+              Your connection seems slow. The upload keeps going, and if it drops the note is saved on this device.
+            </p>
+          )}
         </div>
+      )}
+
+      {!online && !busy && (
+        <p className="mt-6 text-sm text-muted" role="status">
+          You&apos;re offline. The note will be saved on this device and upload by itself when you&apos;re back online.
+        </p>
       )}
 
       <div className="mt-6 flex flex-wrap gap-3">
         <Button busy={busy} onClick={upload}>
-          Upload note
+          {online ? 'Upload note' : 'Save to upload later'}
         </Button>
         <Button variant="secondary" disabled={busy} onClick={onDiscard}>
           Discard

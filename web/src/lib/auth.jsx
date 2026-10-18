@@ -28,6 +28,14 @@ export function AuthProvider({ children }) {
     }
   }, [status])
 
+  // Opened without a connection: check the session again as soon as it's back, so saved notes can upload.
+  useEffect(() => {
+    if (status !== 'unreachable') return
+    const online = () => setStatus('checking')
+    window.addEventListener('online', online)
+    return () => window.removeEventListener('online', online)
+  }, [status])
+
   useEffect(() => {
     const onExpired = () => {
       setUser(null)

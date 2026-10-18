@@ -13,6 +13,7 @@ use App\Jobs\ParseVoiceNote;
 use App\Jobs\TranscribeVoiceNote;
 use App\Models\VoiceNote;
 use App\Services\AudioVault;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -49,6 +50,11 @@ class VoiceNoteController extends Controller
     public function store(VoiceNoteRequest $request): JsonResponse
     {
         $user = $request->user();
+        $uploadId = $request->validated('client_upload_id');
+        if ($uploadId !== null && ($existing = $this->uploadedBefore($user->id, $uploadId))) {
+            return $this->alreadyUploaded($existing);
+        }
+
         $file = $request->file('audio');
         $extension = $request->extension();
         $source = VoiceNoteSource::from($request->validated('source'));
@@ -69,7 +75,17 @@ class VoiceNoteController extends Controller
                 'size_bytes' => $file->getSize(),
                 'duration_seconds' => $request->validated('duration_seconds'),
                 'original_name' => $source === VoiceNoteSource::Upload ? $this->displayName($file->getClientOriginalName()) : null,
+                'client_upload_id' => $uploadId,
             ])->save();
+        } catch (UniqueConstraintViolationException $e) {
+            // Two retries of the same upload raced past the check above: the other one created the note.
+            $this->vault->delete($key);
+            $existing = $uploadId !== null ? $this->uploadedBefore($user->id, $uploadId) : null;
+            if (! $existing) {
+                throw $e;
+            }
+
+            return $this->alreadyUploaded($existing);
         } catch (Throwable $e) {
             $this->vault->delete($key);
             throw $e;
@@ -167,6 +183,17 @@ class VoiceNoteController extends Controller
         }
 
         return response()->json(null, 204);
+    }
+
+    private function uploadedBefore(int $userId, string $uploadId): ?VoiceNote
+    {
+        return VoiceNote::where('user_id', $userId)->where('client_upload_id', $uploadId)->first();
+    }
+
+    /** A retried upload the server already has: 200 with that note, nothing stored or processed again. */
+    private function alreadyUploaded(VoiceNote $note): JsonResponse
+    {
+        return (new VoiceNoteResource($note->load(['client:id,name', 'user:id,name'])))->response()->setStatusCode(200);
     }
 
     /** The one place processing begins once a note's audio is safely stored. */

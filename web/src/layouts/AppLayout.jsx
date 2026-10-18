@@ -1,8 +1,11 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router'
 import { LogoMark, Wordmark } from '../components/Logo'
 import { OfflineBanner } from '../components/OfflineBanner'
 import { Button, ErrorState, Skeleton } from '../components/ui'
+import { useOnline } from '../hooks/useResource'
 import { useAuth } from '../lib/auth'
+import { UploadQueueProvider, useUploadQueue } from '../lib/uploadQueue'
 import Forbidden from '../pages/public/Forbidden'
 
 const NAV = [
@@ -58,7 +61,36 @@ export function RequireManager({ children }) {
 }
 
 export default function AppLayout() {
+  const { user } = useAuth()
+  return (
+    <UploadQueueProvider key={user.device_key} userId={user.device_key}>
+      <Shell />
+    </UploadQueueProvider>
+  )
+}
+
+function NavBadge({ count }) {
+  if (!count) return null
+  return (
+    <span className="ml-auto min-w-5 rounded-full bg-accent px-1.5 text-center text-xs leading-5 font-semibold text-white tabular-nums">
+      {count}
+      <span className="sr-only"> waiting to upload</span>
+    </span>
+  )
+}
+
+function Shell() {
   const { user, signOut } = useAuth()
+  const queue = useUploadQueue()
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false)
+  const pending = queue.entries.length
+  const requestSignOut = () => (pending ? setConfirmingSignOut(true) : signOut())
+
+  // Notes holds the "Waiting to upload" list; fetch its code now so it still opens if the connection drops.
+  useEffect(() => {
+    import('../pages/app/Notes').catch(() => {})
+  }, [])
+
   const nav = NAV.filter((item) => !item.managerOnly || user?.role === 'manager')
   const roleLabel = user?.role === 'manager' ? 'Manager' : 'Rep'
 
@@ -83,6 +115,7 @@ export default function AppLayout() {
             >
               <NavIcon d={item.icon} />
               {item.label}
+              {item.to === '/app/notes' && <NavBadge count={pending} />}
             </NavLink>
           ))}
         </nav>
@@ -91,7 +124,7 @@ export default function AppLayout() {
           <p className="truncate text-xs text-muted">
             {roleLabel} · {user?.organization?.name}
           </p>
-          <Button variant="ghost" className="mt-2 -ml-2 min-h-9 px-2" onClick={signOut}>
+          <Button variant="ghost" className="mt-2 -ml-2 min-h-9 px-2" onClick={requestSignOut}>
             Sign out
           </Button>
         </div>
@@ -106,7 +139,7 @@ export default function AppLayout() {
               {user?.name} · {roleLabel}
             </span>
           </Link>
-          <Button variant="ghost" onClick={signOut}>
+          <Button variant="ghost" onClick={requestSignOut}>
             Sign out
           </Button>
         </header>
@@ -127,11 +160,87 @@ export default function AppLayout() {
             to={item.to}
             className={({ isActive }) => `flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-xs font-semibold ${isActive ? 'text-brand' : 'text-muted'}`}
           >
-            <NavIcon d={item.icon} />
+            <span className="relative">
+              <NavIcon d={item.icon} />
+              {item.to === '/app/notes' && pending > 0 && (
+                <span className="absolute -top-1.5 -right-2.5 min-w-4 rounded-full bg-accent px-1 text-center text-[0.625rem] leading-4 text-white tabular-nums">
+                  {pending}
+                  <span className="sr-only"> waiting to upload</span>
+                </span>
+              )}
+            </span>
             <span className="truncate">{item.label}</span>
           </NavLink>
         ))}
       </nav>
+
+      <SignOutDialog open={confirmingSignOut} count={pending} onClose={() => setConfirmingSignOut(false)} />
     </div>
+  )
+}
+
+/** Sign-out with notes still on the device: upload them first, keep them for the next sign-in, or discard them. */
+function SignOutDialog({ open, count, onClose }) {
+  const { signOut } = useAuth()
+  const queue = useUploadQueue()
+  const online = useOnline()
+  const [busy, setBusy] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const dialog = ref.current
+    if (!dialog) return
+    if (open && !dialog.open) dialog.showModal()
+    if (!open && dialog.open) dialog.close()
+  }, [open])
+
+  const uploadFirst = () => {
+    queue.retryNow()
+    onClose()
+  }
+  const discardAndSignOut = async () => {
+    setBusy(true)
+    try {
+      await queue.discardAll()
+    } finally {
+      setBusy(false)
+    }
+    signOut()
+  }
+
+  return (
+    <dialog
+      ref={ref}
+      onCancel={(e) => {
+        e.preventDefault()
+        onClose()
+      }}
+      className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-card border border-line bg-surface p-0 text-ink shadow-xl backdrop:bg-ink/40"
+      aria-labelledby="sign-out-title"
+    >
+      <div className="p-6">
+        <h2 id="sign-out-title" className="text-2xl">
+          {count === 1 ? '1 recording hasn’t uploaded yet' : `${count} recordings haven’t uploaded yet`}
+        </h2>
+        <p className="mt-2 text-sm text-muted">
+          They&apos;re saved on this device. If you sign out anyway, they stay here and upload the next time you sign in on this browser.
+          {!online && ' You’re offline, so they can’t upload right now.'}
+        </p>
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+          <Button variant="secondary" onClick={onClose} className="sm:mr-auto">
+            Cancel
+          </Button>
+          <Button variant="danger" busy={busy} onClick={discardAndSignOut}>
+            Discard and sign out
+          </Button>
+          <Button variant="secondary" disabled={busy} onClick={signOut}>
+            Sign out anyway
+          </Button>
+          <Button disabled={!online || busy} onClick={uploadFirst}>
+            Upload first
+          </Button>
+        </div>
+      </div>
+    </dialog>
   )
 }

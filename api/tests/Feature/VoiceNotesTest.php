@@ -9,6 +9,7 @@ use App\Services\AudioVault;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use Tests\TestCase;
@@ -291,5 +292,83 @@ class VoiceNotesTest extends TestCase
         }
 
         $this->asUser(User::factory()->create(['org_id' => $org]))->upload()->assertStatus(429);
+    }
+
+    public function test_a_retried_upload_with_the_same_client_upload_id_returns_the_first_note(): void
+    {
+        $rep = User::factory()->create();
+        $uploadId = (string) Str::uuid();
+
+        $first = $this->asUser($rep)->upload(['client_upload_id' => $uploadId])->assertCreated()->json('data.id');
+        $this->asUser($rep)->upload(['client_upload_id' => $uploadId])
+            ->assertOk()
+            ->assertJsonPath('data.id', $first);
+
+        $this->assertSame(1, VoiceNote::count());
+        $this->assertCount(1, Storage::disk('audio')->allFiles());
+        $this->assertSame(1, VoiceNote::findOrFail($first)->attempts);
+    }
+
+    public function test_uploads_without_a_client_upload_id_are_never_merged(): void
+    {
+        $rep = User::factory()->create();
+
+        $this->asUser($rep)->upload()->assertCreated();
+        $this->asUser($rep)->upload()->assertCreated();
+
+        $this->assertSame(2, VoiceNote::count());
+    }
+
+    public function test_the_same_client_upload_id_from_another_user_creates_their_own_note(): void
+    {
+        $rep = User::factory()->create();
+        $colleague = User::factory()->create(['org_id' => $rep->org_id]);
+        $stranger = User::factory()->create();
+        $uploadId = (string) Str::uuid();
+
+        $first = $this->asUser($rep)->upload(['client_upload_id' => $uploadId])->assertCreated()->json('data.id');
+
+        foreach ([$colleague, $stranger] as $other) {
+            $response = $this->asUser($other)->upload(['client_upload_id' => $uploadId])->assertCreated();
+            $this->assertNotSame($first, $response->json('data.id'));
+            $response->assertJsonPath('data.owner.is_you', true);
+            $this->assertSame($other->id, VoiceNote::findOrFail($response->json('data.id'))->user_id);
+        }
+
+        $this->assertSame(3, VoiceNote::count());
+        $this->getJson('/api/voice-notes')->assertJsonCount(1, 'data');
+    }
+
+    public function test_a_concurrent_duplicate_returns_the_note_that_won_and_drops_the_extra_audio(): void
+    {
+        $rep = User::factory()->create();
+        $uploadId = (string) Str::uuid();
+        $other = $this->noteFor($rep);
+
+        // Another request with the same id saves its note between this request's check and its insert.
+        $winner = null;
+        VoiceNote::creating(function (VoiceNote $note) use (&$winner, $other, $uploadId) {
+            if ($winner || $note->client_upload_id !== $uploadId) {
+                return;
+            }
+            $winner = $other->replicate();
+            $winner->client_upload_id = $uploadId;
+            $winner->storage_key = $other->storage_key.'-winner';
+            VoiceNote::withoutEvents(fn () => $winner->save());
+        });
+
+        $this->asUser($rep)->upload(['client_upload_id' => $uploadId])
+            ->assertOk()
+            ->assertJsonPath('data.id', $winner->id);
+
+        $this->assertSame(2, VoiceNote::count());
+        $this->assertSame([$other->storage_key], Storage::disk('audio')->allFiles());
+    }
+
+    public function test_client_upload_id_must_be_a_uuid(): void
+    {
+        $this->asUser(User::factory()->create())->upload(['client_upload_id' => 'not-a-uuid'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('client_upload_id');
     }
 }

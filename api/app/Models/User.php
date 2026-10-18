@@ -63,9 +63,14 @@ class User extends Authenticatable
         return $this->deactivated_at === null;
     }
 
+    /**
+     * `device_key` lets the browser keep notes waiting to upload apart per account without exposing the user id:
+     * stable for this user, meaningless to anyone else.
+     */
     public function toProfile(): array
     {
         return [
+            'device_key' => hash_hmac('sha256', 'pending-uploads:'.$this->id, (string) config('app.key')),
             'name' => $this->name,
             'email' => $this->email,
             'role' => $this->role->value,
