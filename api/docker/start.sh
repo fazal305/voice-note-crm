@@ -7,7 +7,6 @@ mkdir -p storage/framework/cache storage/framework/views storage/logs storage/ap
 
 php artisan config:cache
 php artisan route:cache
-php artisan view:cache
 php artisan migrate --force
 php artisan db:enable-rls
 

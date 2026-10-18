@@ -137,7 +137,7 @@ Because the demo is shared, `voice-notes:prune-demo` deletes demo-organization n
 
 ### API
 
-`api/Dockerfile` builds a production image (FrankenPHP, PHP 8.4, OPcache, `pdo_pgsql`, 26 MB upload limit) that listens on `$PORT` (default 8080). It sets `APP_ENV=production`, `APP_DEBUG=false` and logs to stderr; it contains no secrets, so set `APP_KEY`, the `DB_*` variables and the others above in the host's environment. On every start, `api/docker/start.sh` caches config and routes, runs `php artisan migrate --force`, switches on row level security for every table when the database is PostgreSQL (`php artisan db:enable-rls`), seeds the demo organization if it is missing, starts a queue worker and then the web server.
+`api/Dockerfile` builds a production image (FrankenPHP, PHP 8.4, OPcache, `pdo_pgsql`, 26 MB upload limit) that listens on `$PORT` (default 8080). It sets `APP_ENV=production`, `APP_DEBUG=false` and logs to stderr; it contains no secrets, so set `APP_KEY`, the `DB_*` variables and the others above in the host's environment. On every start, `api/docker/start.sh` caches config and routes (the API has no views), runs `php artisan migrate --force`, switches on row level security for every table when the database is PostgreSQL (`php artisan db:enable-rls`), seeds the demo organization if it is missing, starts a queue worker and then the web server.
 
 The live API runs at `https://voice-note-crm-api.onrender.com` as a Render Docker web service (root directory `api`, free plan, Singapore region, health check `GET /api/health`, deploys on every push to `main`). Its database is a dedicated `voice_note_crm` schema in a Supabase PostgreSQL project, reached through the session pooler with `DB_SSLMODE=require`.
 
