@@ -5,13 +5,19 @@ namespace App\Http\Controllers\Api;
 use App\Enums\VoiceNoteSource;
 use App\Enums\VoiceNoteStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\TranscriptRequest;
 use App\Http\Requests\VoiceNoteRequest;
+use App\Http\Resources\VoiceNoteDetailResource;
 use App\Http\Resources\VoiceNoteResource;
+use App\Jobs\ParseVoiceNote;
+use App\Jobs\TranscribeVoiceNote;
 use App\Models\VoiceNote;
 use App\Services\AudioVault;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -71,11 +77,58 @@ class VoiceNoteController extends Controller
         return (new VoiceNoteResource($note->load(['client:id,name', 'user:id,name'])))->response()->setStatusCode(201);
     }
 
-    public function show(VoiceNote $voiceNote): VoiceNoteResource
+    public function show(VoiceNote $voiceNote): VoiceNoteDetailResource
     {
         Gate::authorize('view', $voiceNote);
 
-        return new VoiceNoteResource($voiceNote->load(['client:id,name', 'user:id,name']));
+        return new VoiceNoteDetailResource($voiceNote->load(['client:id,name', 'user:id,name', 'suggestedClient:id,org_id,name']));
+    }
+
+    /** Runs processing again for a failed note: from the transcript if there is one, otherwise from the audio. */
+    public function retry(VoiceNote $voiceNote): JsonResponse
+    {
+        Gate::authorize('process', $voiceNote);
+
+        if ($voiceNote->status !== VoiceNoteStatus::Failed) {
+            return response()->json(['message' => 'Only a note that failed can be retried.'], 409);
+        }
+        if ($voiceNote->attempts >= VoiceNote::MAX_ATTEMPTS) {
+            return $this->tooManyAttempts();
+        }
+
+        $hasTranscript = $voiceNote->transcript !== null;
+        if (! $this->claim($voiceNote, [VoiceNoteStatus::Failed], $hasTranscript ? VoiceNoteStatus::Parsing : VoiceNoteStatus::Uploaded)) {
+            return response()->json(['message' => 'This note is already being processed.'], 409);
+        }
+
+        if ($hasTranscript) {
+            ParseVoiceNote::dispatch($voiceNote->id);
+        } else {
+            $this->dispatchChain($voiceNote);
+        }
+
+        return $this->detail($voiceNote);
+    }
+
+    /** A transcript typed or pasted by the user, for notes no speech-to-text service could transcribe. */
+    public function transcript(TranscriptRequest $request, VoiceNote $voiceNote): JsonResponse
+    {
+        $waiting = $voiceNote->status === VoiceNoteStatus::AwaitingTranscript
+            || ($voiceNote->status === VoiceNoteStatus::Failed && $voiceNote->transcript === null);
+        if (! $waiting) {
+            return response()->json(['message' => "This note isn't waiting for a transcript."], 409);
+        }
+        if ($voiceNote->attempts >= VoiceNote::MAX_ATTEMPTS) {
+            return $this->tooManyAttempts();
+        }
+        if (! $this->claim($voiceNote, [VoiceNoteStatus::AwaitingTranscript, VoiceNoteStatus::Failed], VoiceNoteStatus::Parsing)) {
+            return response()->json(['message' => 'This note is already being processed.'], 409);
+        }
+
+        $voiceNote->refresh()->forceFill(['transcript' => $request->transcript()])->save();
+        ParseVoiceNote::dispatch($voiceNote->id);
+
+        return $this->detail($voiceNote);
     }
 
     public function audio(VoiceNote $voiceNote): Response
@@ -103,11 +156,47 @@ class VoiceNoteController extends Controller
         return response()->json(null, 204);
     }
 
+    /** The one place processing begins once a note's audio is safely stored. */
+    private function startProcessing(VoiceNote $note): void
+    {
+        $note->forceFill(['attempts' => 1, 'processing_started_at' => now()])->save();
+        $this->dispatchChain($note);
+    }
+
+    private function dispatchChain(VoiceNote $note): void
+    {
+        Bus::chain([new TranscribeVoiceNote($note->id), new ParseVoiceNote($note->id)])->dispatch();
+    }
+
     /**
-     * The one place processing begins once a note's audio is safely stored. Milestone 3 dispatches the
-     * transcription job here; until then a note stays "uploaded".
+     * Moves the note from one of the given statuses to the next in a single conditional update, so a double
+     * click or two tabs can't start two paid processing runs.
      */
-    private function startProcessing(VoiceNote $note): void {}
+    private function claim(VoiceNote $note, array $from, VoiceNoteStatus $to): bool
+    {
+        return VoiceNote::whereKey($note->id)
+            ->whereIn('status', array_map(fn (VoiceNoteStatus $s) => $s->value, $from))
+            ->where('attempts', '<', VoiceNote::MAX_ATTEMPTS)
+            ->update([
+                'status' => $to->value,
+                'error' => null,
+                'attempts' => DB::raw('attempts + 1'),
+                'processing_started_at' => now(),
+                'updated_at' => now(),
+            ]) === 1;
+    }
+
+    private function detail(VoiceNote $note): JsonResponse
+    {
+        $note->refresh()->load(['client:id,name', 'user:id,name', 'suggestedClient:id,org_id,name']);
+
+        return (new VoiceNoteDetailResource($note))->response()->setStatusCode(202);
+    }
+
+    private function tooManyAttempts(): JsonResponse
+    {
+        return response()->json(['message' => "This note can't be processed again. Record or upload it as a new note."], 422);
+    }
 
     // The original filename is display-only: path parts and anything but letters, digits and simple punctuation are dropped.
     private function displayName(string $name): ?string

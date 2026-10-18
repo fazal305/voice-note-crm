@@ -1,17 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router'
+import { StatusChip } from '../../components/StatusChip'
 import { Alert, Button, ConfirmDialog, EmptyState, LinkButton, LoadState, PageHeader, Toast } from '../../components/ui'
 import { useDocumentTitle, useResource } from '../../hooks/useResource'
 import { api, errorMessage } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { formatBytes, formatDate, formatDuration } from '../../lib/format'
-
-const STATUS = {
-  uploaded: { label: 'Uploaded', className: 'bg-neutral-tint text-neutral' },
-  transcribing: { label: 'Transcribing', className: 'bg-warn-tint text-warn' },
-  parsing: { label: 'Processing', className: 'bg-warn-tint text-warn' },
-  ready: { label: 'Ready', className: 'bg-positive-tint text-positive' },
-  failed: { label: 'Failed', className: 'bg-danger-tint text-danger' },
-}
 
 export default function Notes() {
   useDocumentTitle('Notes')
@@ -101,7 +95,6 @@ function Note({ note, onDeleted }) {
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState(null)
-  const status = STATUS[note.status] ?? STATUS.uploaded
   const title = note.original_name || (note.source === 'recording' ? 'Recording' : 'Uploaded file')
   const duration = formatDuration(note.duration_seconds)
 
@@ -123,7 +116,11 @@ function Note({ note, onDeleted }) {
     <li className="min-w-0 rounded-card border border-line bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{title}</p>
+          <p className="truncate font-semibold">
+            <Link to={`/app/notes/${note.id}`} className="underline-offset-2 hover:underline">
+              {title}
+            </Link>
+          </p>
           <p className="text-sm text-muted">
             {note.client ? note.client.name : 'No client yet'}
             {!note.owner.is_you && <> · by {note.owner.name}</>}
@@ -133,7 +130,7 @@ function Note({ note, onDeleted }) {
             {duration && <> · {duration}</>} · {formatBytes(note.size_bytes)}
           </p>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${status.className}`}>{status.label}</span>
+        <StatusChip status={note.status} />
       </div>
       {note.status === 'failed' && note.error && <p className="mt-2 text-sm text-danger">{note.error}</p>}
       <div className="mt-3 flex flex-wrap items-center gap-2">

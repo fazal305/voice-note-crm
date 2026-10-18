@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { useNavigate } from 'react-router'
 import { ClientPicker } from '../../components/ClientPicker'
 import { Alert, Button, Card, PageHeader, Spinner } from '../../components/ui'
 import { Waveform } from '../../components/Waveform'
@@ -21,8 +21,8 @@ function checkFile(file) {
 
 export default function Record() {
   useDocumentTitle('Record')
+  const navigate = useNavigate()
   const [clip, setClip] = useState(null)
-  const [saved, setSaved] = useState(null)
   const [recordError, setRecordError] = useState(null)
   const fileInputRef = useRef(null)
 
@@ -42,13 +42,11 @@ export default function Record() {
   }, [clip])
 
   const startRecording = () => {
-    setSaved(null)
     setRecordError(null)
     recorder.start()
   }
 
   const chooseFile = (file) => {
-    setSaved(null)
     setRecordError(null)
     setClip({ blob: file, name: file.name, source: 'upload', duration: null, url: URL.createObjectURL(file) })
   }
@@ -69,24 +67,11 @@ export default function Record() {
         {liveMessage}
       </p>
 
-      {saved && (
-        <Alert tone="success" title="Note saved" className="mb-6">
-          Your {saved.source === 'recording' ? 'recording' : 'file'} is uploaded and stored securely
-          {saved.client ? ` for ${saved.client.name}` : ''}.{' '}
-          <Link to="/app/notes" className="font-semibold underline underline-offset-2">
-            See your notes
-          </Link>
-        </Alert>
-      )}
-
       {clip ? (
         <Review
           clip={clip}
           onDiscard={() => setClip(null)}
-          onSaved={(note) => {
-            setSaved(note)
-            setClip(null)
-          }}
+          onSaved={(note) => navigate(`/app/notes/${note.id}`)}
         />
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">

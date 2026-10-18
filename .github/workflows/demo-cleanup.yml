@@ -1,0 +1,24 @@
+name: Demo cleanup
+
+# The demo sign-in is shared, so notes uploaded there are deleted after 24 hours. Hosts without cron (or that
+# sleep when idle) get the hourly prune from here. Needs the API_URL variable and CRON_SECRET secret.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    if: vars.API_URL != ''
+    steps:
+      - name: Prune demo voice notes
+        env:
+          API_URL: ${{ vars.API_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error --max-time 120 --retry 2 --retry-delay 30 \
+            -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Accept: application/json" \
+            "$API_URL/api/cron/run"

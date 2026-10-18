@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClientController;
+use App\Http\Controllers\Api\CronController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\VoiceNoteController;
 use Illuminate\Support\Facades\Route;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', fn () => ['status' => 'ok']);
 
 Route::post('/demo/login', [AuthController::class, 'demo'])->middleware('throttle:demo');
+
+Route::post('/cron/run', CronController::class)->middleware('throttle:auth');
 
 Route::middleware('throttle:auth')->prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
@@ -32,6 +35,8 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::whereNumber('voiceNote')->group(function () {
         Route::get('/voice-notes/{voiceNote}', [VoiceNoteController::class, 'show']);
         Route::get('/voice-notes/{voiceNote}/audio', [VoiceNoteController::class, 'audio']);
+        Route::post('/voice-notes/{voiceNote}/retry', [VoiceNoteController::class, 'retry'])->middleware('throttle:processing');
+        Route::post('/voice-notes/{voiceNote}/transcript', [VoiceNoteController::class, 'transcript'])->middleware('throttle:processing');
         Route::delete('/voice-notes/{voiceNote}', [VoiceNoteController::class, 'destroy']);
     });
 

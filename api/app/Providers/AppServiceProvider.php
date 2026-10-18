@@ -3,6 +3,12 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Services\Parsing\LlmParser;
+use App\Services\Parsing\NoteParser;
+use App\Services\Parsing\RuleBasedParser;
+use App\Services\Transcription\GroqTranscriber;
+use App\Services\Transcription\NullTranscriber;
+use App\Services\Transcription\Transcriber;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -15,7 +21,18 @@ use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
-    public function register(): void {}
+    public function register(): void
+    {
+        // External services are used only when their keys are set; otherwise notes wait for a typed transcript
+        // and are parsed with basic rules.
+        $this->app->bind(Transcriber::class, fn ($app) => filled(config('services.stt.api_key'))
+            ? $app->make(GroqTranscriber::class)
+            : $app->make(NullTranscriber::class));
+
+        $this->app->bind(NoteParser::class, fn ($app) => filled(config('services.llm.api_key'))
+            ? $app->make(LlmParser::class)
+            : $app->make(RuleBasedParser::class));
+    }
 
     public function boot(): void
     {
@@ -62,6 +79,14 @@ class AppServiceProvider extends ServiceProvider
             Limit::perDay(100)->by('upload-user-day:'.$request->user()?->id)->response($tooMany),
             Limit::perMinute(30)->by('upload-ip-min:'.$request->ip())->response($tooMany),
             Limit::perDay(300)->by('upload-ip-day:'.$request->ip())->response($tooMany),
+        ]);
+
+        // Retries and typed transcripts each start a paid transcription or model call.
+        RateLimiter::for('processing', fn (Request $request) => [
+            Limit::perMinute(6)->by('process-user-min:'.$request->user()?->id)->response($tooMany),
+            Limit::perDay(60)->by('process-user-day:'.$request->user()?->id)->response($tooMany),
+            Limit::perMinute(20)->by('process-ip-min:'.$request->ip())->response($tooMany),
+            Limit::perDay(200)->by('process-ip-day:'.$request->ip())->response($tooMany),
         ]);
     }
 }

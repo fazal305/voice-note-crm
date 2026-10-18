@@ -18,3 +18,11 @@ export function formatDate(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
+
+/** "2026-10-20" → "Tue, Oct 20, 2026", read as a calendar day in local time (not UTC midnight). */
+export function formatDay(ymd) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd ?? '')
+  if (!match) return ''
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}

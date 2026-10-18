@@ -13,6 +13,12 @@ class VoiceNotePolicy
         return $this->ownerOrManager($user, $note);
     }
 
+    // Retrying processing or supplying a transcript.
+    public function process(User $user, VoiceNote $note): Response
+    {
+        return $this->ownerOrManager($user, $note);
+    }
+
     public function delete(User $user, VoiceNote $note): Response
     {
         return $this->ownerOrManager($user, $note);
