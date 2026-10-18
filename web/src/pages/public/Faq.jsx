@@ -8,8 +8,8 @@ const QUESTIONS = [
     q: 'What does Voice Note CRM do?',
     a: (
       <>
-        After a client call, you record a short spoken debrief. The app transcribes it, drafts a call log (summary, client sentiment, action items
-        and a follow-up date) and suggests which client it was about. You check the draft, fix anything, and save it. Action items and follow-ups
+        After a client call, you record a short spoken debrief. The app turns it into a transcript (or you paste one in), drafts a call log
+        (summary, client sentiment, action items and a follow-up date) and suggests which client it was about. You check the draft, fix anything, and save it. Action items and follow-ups
         become tasks, and each client gets a timeline of past calls.
       </>
     ),
@@ -45,7 +45,9 @@ const QUESTIONS = [
     q: 'Where does my data go?',
     a: (
       <>
-        Audio goes to Groq for transcription, and the transcript goes through OpenRouter to a language model for the summary. Everything is stored
+        When transcription is turned on, audio is sent to Groq for speech-to-text and the transcript to an OpenRouter model for the summary. If
+        a server doesn&apos;t have those configured, you paste or type the transcript and a simpler rule-based parser fills in the fields
+        without calling an outside model. Everything is stored
         in a Supabase database and storage bucket, with audio, transcripts and summaries encrypted. The <Link to="/privacy">Privacy Policy</Link>{' '}
         has the details.
       </>

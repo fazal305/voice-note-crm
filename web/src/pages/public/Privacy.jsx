@@ -62,7 +62,7 @@ export default function Privacy() {
       </ul>
 
       <h2>Who processes it for us</h2>
-      <p>To turn speech into a call log, your data is sent to these services:</p>
+      <p>When speech-to-text and the language model are enabled, your data is sent to these services to turn speech into a call log:</p>
       <ul>
         <li>
           <strong>Speech to text — Groq.</strong> The audio of each voice note is sent to Groq&apos;s Whisper transcription API, which returns the

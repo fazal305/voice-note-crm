@@ -4,7 +4,7 @@ import { useDocumentTitle } from '../../hooks/useResource'
 
 const STEPS = [
   ['Talk', 'Right after a client call, record a short voice note while it is fresh.'],
-  ['Transcribe', 'The note is transcribed, then summarised: sentiment, action items and follow-up dates.'],
+  ['Draft', 'The debrief becomes a draft: summary, sentiment, action items and follow-up dates.'],
   ['Check', 'You read the draft, fix anything it got wrong, and save. Follow-ups become tasks.'],
 ]
 
@@ -67,8 +67,8 @@ export default function Landing() {
           ))}
         </ol>
         <p className="mt-6 text-sm text-muted">
-          A working portfolio project by Fazal Abbas. Speech is transcribed by Groq and summarised by a language model through OpenRouter, and
-          you check every draft before it is saved. See the{' '}
+          A working portfolio project by Fazal Abbas. Record or upload a quick debrief, get a summary, sentiment, action items and follow-ups to
+          review, and check every draft before it is saved. See the{' '}
           <Link to="/faq" className="font-semibold text-brand underline underline-offset-2">
             FAQ
           </Link>{' '}
