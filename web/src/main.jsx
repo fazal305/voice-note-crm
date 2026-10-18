@@ -5,14 +5,20 @@ import { createBrowserRouter, Navigate, Outlet, RouterProvider, ScrollRestoratio
 import './index.css'
 import { AuthProvider } from './lib/auth'
 import PublicLayout from './layouts/PublicLayout'
-import AppLayout, { RequireAuth, RequireManager } from './layouts/AppLayout'
+import { RequireAuth, RequireManager } from './layouts/guards'
 import { Skeleton } from './components/ui'
+import { usePageMeta } from './hooks/usePageMeta'
 import NotFound from './pages/public/NotFound'
+
+// The app shell (navigation, upload queue) loads only once someone opens /app, so public pages stay light.
+const AppLayout = lazy(() => import('./layouts/AppLayout'))
 
 const Landing = lazy(() => import('./pages/public/Landing'))
 const Login = lazy(() => import('./pages/public/Login'))
 const Register = lazy(() => import('./pages/public/Register'))
 const Terms = lazy(() => import('./pages/public/Terms'))
+const Privacy = lazy(() => import('./pages/public/Privacy'))
+const Faq = lazy(() => import('./pages/public/Faq'))
 const Record = lazy(() => import('./pages/app/Record'))
 const Notes = lazy(() => import('./pages/app/Notes'))
 const NoteDetail = lazy(() => import('./pages/app/NoteDetail'))
@@ -25,6 +31,7 @@ const Tasks = lazy(() => import('./pages/app/Tasks'))
 const Team = lazy(() => import('./pages/app/Team'))
 
 function Root() {
+  usePageMeta()
   return (
     <AuthProvider>
       <ScrollRestoration />
@@ -59,6 +66,8 @@ const router = createBrowserRouter([
           { path: '/login', element: <Page><Login /></Page> },
           { path: '/register', element: <Page><Register /></Page> },
           { path: '/terms', element: <Page><Terms /></Page> },
+          { path: '/privacy', element: <Page><Privacy /></Page> },
+          { path: '/faq', element: <Page><Faq /></Page> },
           { path: '*', element: <NotFound /> },
         ],
       },
@@ -66,7 +75,9 @@ const router = createBrowserRouter([
         path: '/app',
         element: (
           <RequireAuth>
-            <AppLayout />
+            <Page>
+              <AppLayout />
+            </Page>
           </RequireAuth>
         ),
         children: [

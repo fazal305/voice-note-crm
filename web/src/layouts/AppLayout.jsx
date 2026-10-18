@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, NavLink, Outlet, useLocation } from 'react-router'
+import { Link, NavLink, Outlet } from 'react-router'
 import { LogoMark, Wordmark } from '../components/Logo'
 import { OfflineBanner } from '../components/OfflineBanner'
-import { Button, ErrorState, Skeleton } from '../components/ui'
+import { Button } from '../components/ui'
 import { useOnline } from '../hooks/useResource'
 import { useAuth } from '../lib/auth'
 import { UploadQueueProvider, useUploadQueue } from '../lib/uploadQueue'
-import Forbidden from '../pages/public/Forbidden'
 
 const NAV = [
   { to: '/app/record', label: 'Record', icon: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21' },
@@ -24,40 +23,6 @@ function NavIcon({ d }) {
       <path d={d} />
     </svg>
   )
-}
-
-export function RequireAuth({ children }) {
-  const { status, retry, expired } = useAuth()
-  const location = useLocation()
-
-  if (status === 'checking') {
-    return (
-      <div className="mx-auto max-w-5xl space-y-4 p-6" aria-busy="true">
-        <span className="sr-only" role="status">
-          Loading your account…
-        </span>
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-32" />
-        <Skeleton className="h-64" />
-      </div>
-    )
-  }
-  if (status === 'unreachable') {
-    return (
-      <div className="mx-auto max-w-lg p-6 pt-20">
-        <ErrorState title="Can't reach Voice Note CRM" message="We couldn't contact the server to restore your session. Check your connection and try again." onRetry={retry} />
-      </div>
-    )
-  }
-  if (status !== 'authed') {
-    return <Navigate to="/login" replace state={{ from: location.pathname, expired }} />
-  }
-  return children
-}
-
-export function RequireManager({ children }) {
-  const { user } = useAuth()
-  return user?.role === 'manager' ? children : <Forbidden inApp />
 }
 
 export default function AppLayout() {
@@ -133,24 +98,39 @@ function Shell() {
       <div className="flex min-w-0 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
         <OfflineBanner />
         <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-line bg-paper/90 px-4 py-3 backdrop-blur sm:px-6 lg:hidden">
-          <Link to="/app/record" aria-label="Voice Note CRM home" className="flex min-w-0 items-center gap-2.5">
-            <LogoMark />
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Link to="/app/record" aria-label="Voice Note CRM home" className="shrink-0">
+              <LogoMark />
+            </Link>
             <span className="truncate text-sm text-muted">
               {user?.name} · {roleLabel}
             </span>
-          </Link>
+          </div>
           <Button variant="ghost" onClick={requestSignOut}>
             Sign out
           </Button>
         </header>
         {user?.organization?.is_demo && (
-          <p role="note" className="border-b border-warn/20 bg-warn-tint px-4 py-2 text-center text-xs text-warn sm:px-6">
-            Demo organization with made-up sample data. Anyone trying the demo can see and change these clients.
-          </p>
+          <aside aria-label="Demo notice" className="border-b border-warn/20 bg-warn-tint px-4 py-2 text-center text-xs text-warn sm:px-6">
+            <p>Demo organization with made-up sample data. Anyone trying the demo can see and change these clients.</p>
+          </aside>
         )}
         <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-8 sm:py-10">
           <Outlet />
         </main>
+        <footer className="mx-auto w-full max-w-5xl px-4 pb-6 text-xs text-muted sm:px-8">
+          <Link to="/privacy" className="underline underline-offset-2 hover:text-ink">
+            Privacy
+          </Link>
+          <span aria-hidden="true"> · </span>
+          <Link to="/terms" className="underline underline-offset-2 hover:text-ink">
+            Terms
+          </Link>
+          <span aria-hidden="true"> · </span>
+          <Link to="/faq" className="underline underline-offset-2 hover:text-ink">
+            FAQ
+          </Link>
+        </footer>
       </div>
 
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">

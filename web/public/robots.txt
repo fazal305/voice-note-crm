@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+# "/app" alone would also match /apple-touch-icon.png, so the app is listed as its two exact forms.
+Disallow: /app/
+Disallow: /app$
+
+Sitemap: https://voice-note-crm.vercel.app/sitemap.xml

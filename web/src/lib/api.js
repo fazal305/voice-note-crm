@@ -1,12 +1,6 @@
-import axios from 'axios'
-
 const TOKEN_KEY = 'vnc_token'
-
-export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8473/api',
-  headers: { Accept: 'application/json' },
-  timeout: 30000,
-})
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8473/api'
+const DEFAULT_TIMEOUT = 30000
 
 export function getToken() {
   try {
@@ -25,26 +19,104 @@ export function setToken(token) {
   }
 }
 
-api.interceptors.request.use((config) => {
-  const token = getToken()
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
+/** A request error. `response` ({ status, data }) is set when the server answered; `code` says why when it didn't. */
+class RequestError extends Error {
+  constructor(message, code, response) {
+    super(message)
+    this.name = code === 'ERR_CANCELED' ? 'CanceledError' : 'RequestError'
+    this.code = code
+    this.response = response
+  }
+}
 
-api.interceptors.response.use(
-  (res) => res,
-  (error) => {
-    if (error.response?.status === 401 && getToken()) {
-      setToken(null)
-      window.dispatchEvent(new CustomEvent('session-expired'))
+export function isCancel(error) {
+  return error?.code === 'ERR_CANCELED'
+}
+
+function buildUrl(path, params) {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if (value !== undefined && value !== null) query.append(key, value)
+  }
+  const qs = query.toString()
+  return `${BASE_URL}${path}${qs ? `?${qs}` : ''}`
+}
+
+function parseBody(xhr, responseType) {
+  if (responseType === 'blob') return xhr.response
+  const text = xhr.responseText
+  if (!text) return ''
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+/**
+ * Sends a request with XMLHttpRequest (for upload progress) and resolves to { data, status } on a 2xx answer.
+ * Options: params, signal, timeout (ms), responseType ('blob'), onUploadProgress.
+ */
+function request(method, path, body, { params, signal, timeout = DEFAULT_TIMEOUT, responseType, onUploadProgress } = {}) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new RequestError('canceled', 'ERR_CANCELED'))
+      return
     }
-    return Promise.reject(error)
-  },
-)
+
+    const xhr = new XMLHttpRequest()
+    xhr.open(method, buildUrl(path, params))
+    xhr.timeout = timeout
+    if (responseType === 'blob') xhr.responseType = 'blob'
+    xhr.setRequestHeader('Accept', 'application/json')
+    const token = getToken()
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+    let payload = body
+    if (body != null && !(body instanceof FormData)) {
+      xhr.setRequestHeader('Content-Type', 'application/json')
+      payload = JSON.stringify(body)
+    }
+    if (onUploadProgress) xhr.upload.onprogress = (e) => onUploadProgress({ loaded: e.loaded, total: e.lengthComputable ? e.total : undefined })
+
+    const onAbort = () => xhr.abort()
+    signal?.addEventListener('abort', onAbort)
+    const settle = (fn, value) => {
+      signal?.removeEventListener('abort', onAbort)
+      fn(value)
+    }
+
+    xhr.onload = () => {
+      const response = { status: xhr.status, data: parseBody(xhr, responseType) }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        settle(resolve, response)
+        return
+      }
+      if (xhr.status === 401 && getToken()) {
+        setToken(null)
+        window.dispatchEvent(new CustomEvent('session-expired'))
+      }
+      settle(reject, new RequestError(`Request failed with status code ${xhr.status}`, 'ERR_BAD_RESPONSE', response))
+    }
+    xhr.onerror = () => settle(reject, new RequestError('Network Error', 'ERR_NETWORK'))
+    xhr.ontimeout = () => settle(reject, new RequestError(`timeout of ${timeout}ms exceeded`, 'ECONNABORTED'))
+    xhr.onabort = () => settle(reject, new RequestError('canceled', 'ERR_CANCELED'))
+
+    xhr.send(payload ?? null)
+  })
+}
+
+export const api = {
+  get: (path, options) => request('GET', path, undefined, options),
+  delete: (path, options) => request('DELETE', path, undefined, options),
+  post: (path, body, options) => request('POST', path, body, options),
+  put: (path, body, options) => request('PUT', path, body, options),
+  patch: (path, body, options) => request('PATCH', path, body, options),
+}
 
 /** Turns any request failure into a short, user-facing sentence. */
 export function errorMessage(error, fallback = 'Something went wrong. Please try again.') {
-  if (axios.isCancel(error)) return null
+  if (isCancel(error)) return null
   if (!error?.response) {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       return 'You appear to be offline. Check your connection and try again.'

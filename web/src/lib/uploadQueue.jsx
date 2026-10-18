@@ -1,7 +1,6 @@
-import axios from 'axios'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { errorMessage } from './api'
+import { errorMessage, isCancel } from './api'
 import { addPending, isRetryable, listPending, onPendingChange, removeAllPending, removePending, sendVoiceNote, storageReady, updatePending } from './pendingUploads'
 
 const QueueContext = createContext(null)
@@ -107,7 +106,7 @@ export function UploadQueueProvider({ userId, children }) {
             sent += 1
             attempt.current = 0
           } catch (err) {
-            if (axios.isCancel(err)) return
+            if (isCancel(err)) return
             const status = err.response?.status
             if (status === 401) {
               // The session is over: keep everything for this user's next sign-in.

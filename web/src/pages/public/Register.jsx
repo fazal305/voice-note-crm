@@ -67,6 +67,10 @@ export default function Register() {
             I accept the{' '}
             <Link to="/terms" target="_blank" className="font-semibold text-brand underline underline-offset-2">
               terms
+            </Link>{' '}
+            and have read the{' '}
+            <Link to="/privacy" target="_blank" className="font-semibold text-brand underline underline-offset-2">
+              privacy policy
             </Link>
             .
           </Checkbox>

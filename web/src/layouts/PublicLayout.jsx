@@ -2,6 +2,13 @@ import { Link, Outlet } from 'react-router'
 import { Wordmark } from '../components/Logo'
 import { OfflineBanner } from '../components/OfflineBanner'
 import { useAuth } from '../lib/auth'
+import { REPO_URL } from '../lib/site'
+
+const FOOTER_LINKS = [
+  ['/privacy', 'Privacy'],
+  ['/terms', 'Terms'],
+  ['/faq', 'FAQ'],
+]
 
 export default function PublicLayout() {
   const { status } = useAuth()
@@ -34,11 +41,24 @@ export default function PublicLayout() {
         <Outlet />
       </main>
       <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-muted sm:px-6">
-          <p>Voice Note CRM</p>
-          <Link to="/terms" className="underline underline-offset-2 hover:text-ink">
-            Terms
-          </Link>
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-6 text-sm text-muted sm:px-6">
+          <p>&copy; 2026 Fazal Abbas</p>
+          <nav aria-label="Legal and project links">
+            <ul className="flex flex-wrap gap-x-5 gap-y-2">
+              {FOOTER_LINKS.map(([to, label]) => (
+                <li key={to}>
+                  <Link to={to} className="underline underline-offset-2 hover:text-ink">
+                    {label}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <a href={REPO_URL} className="underline underline-offset-2 hover:text-ink">
+                  GitHub
+                </a>
+              </li>
+            </ul>
+          </nav>
         </div>
       </footer>
     </div>

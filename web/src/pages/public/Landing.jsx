@@ -67,7 +67,16 @@ export default function Landing() {
           ))}
         </ol>
         <p className="mt-6 text-sm text-muted">
-          Being built in stages: client records and team management work today. Recording, transcription and summaries come next.
+          A working portfolio project by Fazal Abbas. Speech is transcribed by Groq and summarised by a language model through OpenRouter, and
+          you check every draft before it is saved. See the{' '}
+          <Link to="/faq" className="font-semibold text-brand underline underline-offset-2">
+            FAQ
+          </Link>{' '}
+          and{' '}
+          <Link to="/privacy" className="font-semibold text-brand underline underline-offset-2">
+            privacy policy
+          </Link>
+          .
         </p>
       </section>
     </div>

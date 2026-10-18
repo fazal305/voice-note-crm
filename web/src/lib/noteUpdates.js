@@ -1,5 +1,4 @@
-import axios from 'axios'
-import { api } from './api'
+import { api, isCancel } from './api'
 
 /** Statuses after which a note won't change again without the user doing something. */
 export const SETTLED_STATUSES = new Set(['ready', 'failed', 'awaiting_transcript'])
@@ -51,7 +50,7 @@ export function watchNote(id, { onUpdate, onError }) {
         return
       }
     } catch (error) {
-      if (stopped || axios.isCancel(error)) return
+      if (stopped || isCancel(error)) return
       onError(error)
       // A note that is gone, or a session that ended, won't come back by asking again; a network blip might.
       const status = error.response?.status
