@@ -41,6 +41,11 @@
   --color-warn: #86560a;
   --color-warn-tint: #f7ecd6;
 
+  /* Sentiment bar fills: a diverging set (two poles, gray midpoint), checked for color-blind separation. */
+  --color-chart-positive: #2f7a4a;
+  --color-chart-neutral: #8f897c;
+  --color-chart-negative: #b23c24;
+
   --radius-card: 0.625rem;
 }
 

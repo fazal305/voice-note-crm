@@ -1,12 +1,12 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ClientPicker } from '../../components/ClientPicker'
-import { Alert, Button, Card, PageHeader, Spinner } from '../../components/ui'
+import { Alert, Button, Card, PageHeader, Skeleton, Spinner } from '../../components/ui'
 import { Waveform } from '../../components/Waveform'
 import { MAX_RECORDING_SECONDS, useRecorder } from '../../hooks/useRecorder'
-import { useDocumentTitle } from '../../hooks/useResource'
+import { useDocumentTitle, useResource } from '../../hooks/useResource'
 import { api, errorMessage, fieldErrors } from '../../lib/api'
-import { formatBytes, formatDuration } from '../../lib/format'
+import { formatBytes, formatDay, formatDuration, localToday } from '../../lib/format'
 
 const MAX_BYTES = 25 * 1024 * 1024
 const UPLOAD_EXTENSIONS = ['mp3', 'wav', 'm4a']
@@ -25,6 +25,13 @@ export default function Record() {
   const [clip, setClip] = useState(null)
   const [recordError, setRecordError] = useState(null)
   const fileInputRef = useRef(null)
+  // "Record a note for this client" links here with ?client=<id>; the note starts out filed under that client.
+  const [params] = useSearchParams()
+  const presetId = /^\d+$/.test(params.get('client') ?? '') ? params.get('client') : null
+  const preset = useResource(
+    (signal) => (presetId ? api.get(`/clients/${presetId}`, { signal }).then((res) => res.data.data) : Promise.resolve(null)),
+    presetId ?? '',
+  )
 
   const recorder = useRecorder({
     onRecorded: ({ blob, duration, extension }) => {
@@ -67,9 +74,13 @@ export default function Record() {
         {liveMessage}
       </p>
 
+      {presetId && <PresetClient preset={preset} />}
+
       {clip ? (
         <Review
+          key={preset.data?.id ?? 'none'}
           clip={clip}
+          presetClient={preset.data}
           onDiscard={() => setClip(null)}
           onSaved={(note) => navigate(`/app/notes/${note.id}`)}
         />
@@ -79,7 +90,107 @@ export default function Record() {
           <FilePicker inputRef={fileInputRef} disabled={recorder.status === 'recording' || recorder.status === 'requesting'} onChoose={chooseFile} />
         </div>
       )}
+
+      {!clip && <HomeSummary />}
     </>
+  )
+}
+
+function PresetClient({ preset }) {
+  if (preset.loading) return <p className="mb-4 text-sm text-muted">Loading client…</p>
+  if (preset.error) {
+    return (
+      <Alert tone="warn" className="mb-4">
+        We couldn&apos;t load that client ({preset.error}) You can still pick one after recording.
+      </Alert>
+    )
+  }
+  return (
+    <p className="mb-4 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm" role="status">
+      This note will be filed under <span className="font-semibold">{preset.data.name}</span>. You can change the client before uploading.
+    </p>
+  )
+}
+
+/** The rep's own snapshot: open and overdue tasks and the next follow-ups. Sits below the recorder, never above it. */
+function HomeSummary() {
+  const today = localToday()
+  const summary = useResource((signal) => api.get('/me/summary', { params: { today }, signal }).then((res) => res.data), today)
+
+  if (summary.loading) {
+    return (
+      <div aria-busy="true" className="mt-6">
+        <span className="sr-only" role="status">
+          Loading your summary…
+        </span>
+        <Skeleton className="h-28" />
+      </div>
+    )
+  }
+  if (summary.error) {
+    return (
+      <Alert tone="error" className="mt-6">
+        Couldn&apos;t load your tasks and follow-ups. {summary.error}{' '}
+        <button type="button" className="font-semibold underline underline-offset-2" onClick={summary.reload}>
+          Try again
+        </button>
+      </Alert>
+    )
+  }
+
+  const data = summary.data
+  return (
+    <Card className="mt-6" aria-labelledby="home-summary-heading">
+      <h2 id="home-summary-heading" className="text-2xl">
+        Your week
+      </h2>
+      <dl className="mt-3 grid grid-cols-3 gap-3 text-center sm:max-w-md sm:text-left">
+        <div className="min-w-0">
+          <dt className="text-xs text-muted">Notes this week</dt>
+          <dd className="text-2xl font-semibold">{data.notes_this_week}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-xs text-muted">Open tasks</dt>
+          <dd className="text-2xl font-semibold">
+            <Link to="/app/tasks?view=upcoming" className="text-brand underline underline-offset-2">
+              {data.open_tasks}
+              <span className="sr-only"> open tasks</span>
+            </Link>
+          </dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-xs text-muted">Overdue</dt>
+          <dd className={`text-2xl font-semibold ${data.overdue_tasks > 0 ? 'text-danger' : ''}`}>
+            <Link to="/app/tasks?view=overdue" className="underline underline-offset-2">
+              {data.overdue_tasks}
+              <span className="sr-only"> overdue tasks</span>
+            </Link>
+          </dd>
+        </div>
+      </dl>
+      <h3 className="mt-5 font-sans text-sm font-semibold">Next follow-ups</h3>
+      {data.next_follow_ups.length ? (
+        <ul className="mt-1 divide-y divide-line">
+          {data.next_follow_ups.map((f, i) => (
+            <li key={`${f.date}-${f.client?.id ?? 'none'}-${i}`} className="flex flex-wrap items-baseline justify-between gap-x-3 py-2 text-sm">
+              {f.client ? (
+                <Link to={`/app/clients/${f.client.id}`} className="min-w-0 break-words font-semibold text-brand underline underline-offset-2">
+                  {f.client.name}
+                </Link>
+              ) : (
+                <span className="font-semibold">A deleted client</span>
+              )}
+              <span className="text-muted">
+                <time dateTime={f.date}>{formatDay(f.date)}</time>
+                {f.phrase && <> · “{f.phrase}”</>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1 text-sm text-muted">No follow-ups scheduled. Dates mentioned on your calls show up here.</p>
+      )}
+    </Card>
   )
 }
 
@@ -268,8 +379,8 @@ function FilePicker({ inputRef, disabled, onChoose }) {
   )
 }
 
-function Review({ clip, onDiscard, onSaved }) {
-  const [clientId, setClientId] = useState('')
+function Review({ clip, presetClient, onDiscard, onSaved }) {
+  const [clientId, setClientId] = useState(presetClient ? String(presetClient.id) : '')
   const [measured, setMeasured] = useState(null)
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -323,7 +434,7 @@ function Review({ clip, onDiscard, onSaved }) {
       </audio>
 
       <div className="mt-6">
-        <ClientPicker value={clientId} onChange={setClientId} error={errors.client_id} disabled={busy} />
+        <ClientPicker value={clientId} onChange={setClientId} selected={presetClient} error={errors.client_id} disabled={busy} />
       </div>
 
       {message && (

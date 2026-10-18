@@ -4,6 +4,9 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CallLogController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CronController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\SummaryController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\VoiceNoteController;
@@ -22,12 +25,14 @@ Route::middleware('throttle:auth')->prefix('auth')->group(function () {
 
 Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/me/summary', SummaryController::class);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
     Route::get('/clients', [ClientController::class, 'index']);
     Route::post('/clients', [ClientController::class, 'store']);
     Route::whereNumber('client')->group(function () {
         Route::get('/clients/{client}', [ClientController::class, 'show']);
+        Route::get('/clients/{client}/timeline', [ClientController::class, 'timeline']);
         Route::put('/clients/{client}', [ClientController::class, 'update']);
         Route::delete('/clients/{client}', [ClientController::class, 'destroy']);
     });
@@ -62,5 +67,12 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
             Route::put('/{user}', [TeamController::class, 'update']);
             Route::post('/{user}/deactivate', [TeamController::class, 'deactivate']);
         });
+    });
+
+    // Manager-only areas share the team gate (and its "for managers only" 403).
+    Route::middleware('can:manage-team')->group(function () {
+        Route::get('/dashboard', DashboardController::class);
+        Route::get('/settings/prompt', [SettingsController::class, 'prompt']);
+        Route::put('/settings/prompt', [SettingsController::class, 'updatePrompt']);
     });
 });

@@ -51,7 +51,7 @@ function Editor({ id, initial }) {
     try {
       if (id) await api.put(`/clients/${id}`, payload)
       else await api.post('/clients', payload)
-      navigate('/app/clients')
+      navigate(id ? `/app/clients/${id}` : '/app/clients')
     } catch (err) {
       const fields = fieldErrors(err)
       setErrors(fields)
@@ -75,8 +75,8 @@ function Editor({ id, initial }) {
   return (
     <>
       <p className="mb-2 text-sm">
-        <Link to="/app/clients" className="font-semibold text-brand underline underline-offset-2">
-          ← Clients
+        <Link to={id ? `/app/clients/${id}` : '/app/clients'} className="font-semibold text-brand underline underline-offset-2">
+          {id ? `← ${initial.name || 'Client'}` : '← Clients'}
         </Link>
       </p>
       <PageHeader title={id ? initial.name || 'Edit client' : 'Add client'} />
@@ -97,7 +97,7 @@ function Editor({ id, initial }) {
           <Button type="submit" busy={busy}>
             {id ? 'Save changes' : 'Add client'}
           </Button>
-          <Link to="/app/clients" className="rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-sunken hover:text-ink">
+          <Link to={id ? `/app/clients/${id}` : '/app/clients'} className="rounded-lg px-3 py-2 text-sm font-semibold text-muted hover:bg-sunken hover:text-ink">
             Cancel
           </Link>
           {id && user?.role === 'manager' && (

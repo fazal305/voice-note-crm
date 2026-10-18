@@ -8,7 +8,6 @@ use App\Http\Requests\CallLogRequest;
 use App\Http\Requests\TaskRequest;
 use App\Http\Resources\TaskResource;
 use App\Models\Task;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,8 +21,8 @@ class TaskController extends Controller
 
     /**
      * Open tasks (overdue, due today, or upcoming, which includes undated ones) or done ones. A rep sees their own;
-     * a manager sees the organization's and can narrow it to one person. `today` is the browser's calendar day, so
-     * "due today" matches the user's own clock; anything more than a day from the server's date is ignored.
+     * a manager sees the organization's and can narrow it to one person. "Today" is the browser's calendar day (see
+     * Controller::today()).
      */
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -108,15 +107,5 @@ class TaskController extends Controller
         $task->delete();
 
         return response()->json(null, 204);
-    }
-
-    private function today(?string $claimed): string
-    {
-        $server = CarbonImmutable::now(config('app.timezone'))->startOfDay();
-        if (is_string($claimed) && abs($server->diffInDays(CarbonImmutable::parse($claimed, config('app.timezone')))) <= 1) {
-            return $claimed;
-        }
-
-        return $server->toDateString();
     }
 }

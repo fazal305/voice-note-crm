@@ -32,3 +32,9 @@ export function localToday() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
+
+/** "2026-10-12T15:00:00Z" → "Oct 12, 2026" in local time. */
+export function formatShortDate(iso) {
+  if (!iso) return ''
+  return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' })
+}

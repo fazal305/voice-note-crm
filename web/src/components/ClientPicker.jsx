@@ -3,7 +3,8 @@ import { api, errorMessage } from '../lib/api'
 
 /**
  * A search box that narrows a plain select of the organization's clients. "" is the empty choice ("Decide later"
- * unless `emptyLabel` says otherwise). `onChange(value, client)` also passes the chosen client, or null.
+ * unless `emptyLabel` says otherwise). `onChange(value, client)` also passes the chosen client, or null. `selected` is
+ * the client already chosen ({ id, name, company }), so it shows even if it isn't in the first page of results.
  */
 export function ClientPicker({
   value,
@@ -13,6 +14,7 @@ export function ClientPicker({
   legend = 'Client (optional)',
   hint = 'Pick who this call was with, or decide later.',
   emptyLabel = 'Decide later',
+  selected = null,
 }) {
   const id = useId()
   const [search, setSearch] = useState('')
@@ -37,7 +39,7 @@ export function ClientPicker({
   }, [search, nonce])
 
   // Keep the chosen client listed even when the search no longer matches it.
-  const [chosen, setChosen] = useState(null)
+  const [chosen, setChosen] = useState(selected)
   const options = chosen && !state.clients.some((c) => c.id === chosen.id) ? [chosen, ...state.clients] : state.clients
 
   return (

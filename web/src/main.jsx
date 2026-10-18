@@ -18,6 +18,9 @@ const Notes = lazy(() => import('./pages/app/Notes'))
 const NoteDetail = lazy(() => import('./pages/app/NoteDetail'))
 const Clients = lazy(() => import('./pages/app/Clients'))
 const ClientForm = lazy(() => import('./pages/app/ClientForm'))
+const ClientDetail = lazy(() => import('./pages/app/ClientDetail'))
+const Dashboard = lazy(() => import('./pages/app/Dashboard'))
+const Settings = lazy(() => import('./pages/app/Settings'))
 const Tasks = lazy(() => import('./pages/app/Tasks'))
 const Team = lazy(() => import('./pages/app/Team'))
 
@@ -74,8 +77,11 @@ const router = createBrowserRouter([
           { path: 'tasks', element: <Page><Tasks /></Page> },
           { path: 'clients', element: <Page><Clients /></Page> },
           { path: 'clients/new', element: <Page><ClientForm /></Page> },
-          { path: 'clients/:id', element: <Page><ClientForm /></Page> },
+          { path: 'clients/:id', element: <Page><ClientDetail /></Page> },
+          { path: 'clients/:id/edit', element: <Page><ClientForm /></Page> },
+          { path: 'dashboard', element: <RequireManager><Page><Dashboard /></Page></RequireManager> },
           { path: 'team', element: <RequireManager><Page><Team /></Page></RequireManager> },
+          { path: 'settings', element: <RequireManager><Page><Settings /></Page></RequireManager> },
           { path: '*', element: <NotFound inApp /> },
         ],
       },

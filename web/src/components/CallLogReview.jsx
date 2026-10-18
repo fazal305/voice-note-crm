@@ -1,18 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { ClientPicker } from './ClientPicker'
+import { SentimentChip } from './StatusChip'
 import { Alert, Button, Card, ConfirmDialog, Field } from './ui'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
 import { api, errorMessage, fieldErrors } from '../lib/api'
 import { formatDate, formatDay } from '../lib/format'
 
 const SENTIMENTS = ['Positive', 'Neutral', 'Frustrated']
-
-const SENTIMENT_STYLE = {
-  Positive: 'bg-positive-tint text-positive',
-  Neutral: 'bg-neutral-tint text-neutral',
-  Frustrated: 'bg-negative-tint text-negative',
-}
 
 const MAX_SUMMARY = 1000
 const MAX_ITEM = 300
@@ -527,10 +522,7 @@ export function SavedLog({ note, onUpdated }) {
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-2xl">Call log</h2>
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${SENTIMENT_STYLE[log.sentiment] ?? SENTIMENT_STYLE.Neutral}`}>
-            <span className="sr-only">Client sentiment: </span>
-            {log.sentiment}
-          </span>
+          <SentimentChip sentiment={log.sentiment} />
         </div>
         <p className="mt-1 text-sm text-muted">
           With{' '}

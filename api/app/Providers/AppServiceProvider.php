@@ -49,6 +49,11 @@ class AppServiceProvider extends ServiceProvider
             ? Response::deny('Team changes are turned off in the demo.')
             : Response::allow());
 
+        // The demo organization is shared by everyone trying it, so its prompt stays the default.
+        Gate::define('edit-prompt', fn (User $user) => $user->organization->is_demo
+            ? Response::deny('Prompt changes are turned off in the demo, so everyone trying it sees the same results.')
+            : Response::allow());
+
         $tooMany = fn (Request $request, array $headers) => response()->json(
             ['message' => 'Too many requests. Please wait a minute and try again.'],
             429,

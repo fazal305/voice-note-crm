@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Sentiment;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,6 +20,19 @@ class CallLog extends Model
             'summary' => 'encrypted',
             'sentiment' => Sentiment::class,
         ];
+    }
+
+    /**
+     * The logs a user may read: a manager, the whole organization's; a rep, the ones they saved or that were saved
+     * from their own notes (a manager can save a log for a rep's note). Same rule as CallLogPolicy::view().
+     */
+    public function scopeVisibleTo(Builder $query, User $user): void
+    {
+        $query->where('call_logs.org_id', $user->org_id);
+        if (! $user->isManager()) {
+            $query->where(fn (Builder $q) => $q->where('call_logs.user_id', $user->id)
+                ->orWhereIn('call_logs.voice_note_id', VoiceNote::select('id')->where('user_id', $user->id)));
+        }
     }
 
     public function voiceNote(): BelongsTo

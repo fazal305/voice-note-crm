@@ -17,6 +17,8 @@ class ClientResource extends JsonResource
             'phone' => $this->phone,
             'notes' => $this->notes,
             'updated_at' => $this->updated_at?->toIso8601String(),
+            // Only on the list, which adds it from the call logs the viewer may read.
+            'last_contact_at' => $this->whenHas('last_contact_at', fn ($at) => $at?->toIso8601String()),
         ];
     }
 }

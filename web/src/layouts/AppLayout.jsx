@@ -10,7 +10,9 @@ const NAV = [
   { to: '/app/notes', label: 'Notes', icon: 'M7 3.5h10A1.5 1.5 0 0 1 18.5 5v14a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5M9 8.5h6M9 12h6M9 15.5h3.5' },
   { to: '/app/tasks', label: 'Tasks', icon: 'M9 6.5h10.5M9 12h10.5M9 17.5h10.5M4 6.5l1 1 2-2M4 12l1 1 2-2M4.5 17.5h1.5' },
   { to: '/app/clients', label: 'Clients', icon: 'M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 10.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6M20 19v-1.5a3.5 3.5 0 0 0-2.5-3.4M15.5 4.6a3 3 0 0 1 0 5.8' },
+  { to: '/app/dashboard', label: 'Dashboard', managerOnly: true, icon: 'M4 20h16M6.5 16.5V11M11 16.5V6.5M15.5 16.5v-4M20 16.5V9' },
   { to: '/app/team', label: 'Team', managerOnly: true, icon: 'M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6zM9.5 12l2 2 3.5-4' },
+  { to: '/app/settings', label: 'Settings', managerOnly: true, icon: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19.4 13.5l1.6 1.2-2 3.4-1.9-.7a7 7 0 0 1-2 1.2L14.8 21h-4l-.3-2.4a7 7 0 0 1-2-1.2l-1.9.7-2-3.4 1.6-1.2a7 7 0 0 1 0-2.3L4.6 10l2-3.4 1.9.7a7 7 0 0 1 2-1.2L10.8 3h4l.3 2.4a7 7 0 0 1 2 1.2l1.9-.7 2 3.4-1.6 1.2a7 7 0 0 1 0 2.3' },
 ]
 
 function NavIcon({ d }) {
