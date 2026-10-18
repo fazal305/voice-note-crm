@@ -1,22 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
+import { ReviewForm, SavedLog } from '../../components/CallLogReview'
 import { StatusChip } from '../../components/StatusChip'
 import { Alert, Button, Card, ErrorState, Field, Skeleton } from '../../components/ui'
 import { useNoteStatus } from '../../hooks/useNoteStatus'
 import { useDocumentTitle } from '../../hooks/useResource'
 import { api, errorMessage, fieldErrors } from '../../lib/api'
-import { formatDate, formatDay, formatDuration } from '../../lib/format'
+import { formatDate, formatDuration } from '../../lib/format'
+import { isStuck } from '../../lib/noteUpdates'
 
 const STEPS = ['Uploaded', 'Transcribing', 'Analyzing', 'Ready']
 const STEP_INDEX = { uploaded: 0, transcribing: 1, awaiting_transcript: 1, parsing: 2, ready: 3 }
 const MIN_TRANSCRIPT = 20
 const MAX_TRANSCRIPT = 20000
-
-const SENTIMENT = {
-  Positive: 'bg-positive-tint text-positive',
-  Neutral: 'bg-neutral-tint text-neutral',
-  Frustrated: 'bg-negative-tint text-negative',
-}
 
 const PROGRESS_MESSAGE = {
   uploaded: 'Your note is uploaded and queued for transcription.',
@@ -61,6 +57,8 @@ export default function NoteDetail() {
 
 function NoteView({ note, title, status }) {
   const duration = formatDuration(note.duration_seconds)
+  const stuck = isStuck(note)
+  const [saved, setSaved] = useState(null)
   const refreshed = (fresh) => {
     status.replace(fresh)
     status.restart()
@@ -80,7 +78,7 @@ function NoteView({ note, title, status }) {
         <StatusChip status={note.status} className="mt-2" />
       </header>
 
-      {note.status !== 'ready' && <Steps status={note.status} transcribed={Boolean(note.transcript)} />}
+      {note.status !== 'ready' && <Steps status={note.status} transcribed={Boolean(note.transcript)} stuck={stuck} />}
 
       {status.error && (
         <Alert tone="warn" className="mb-6">
@@ -88,7 +86,7 @@ function NoteView({ note, title, status }) {
         </Alert>
       )}
 
-      {PROGRESS_MESSAGE[note.status] && (
+      {PROGRESS_MESSAGE[note.status] && !stuck && (
         <Card className="mb-6">
           <p className="font-semibold" role="status" aria-live="polite">
             {PROGRESS_MESSAGE[note.status]}
@@ -113,9 +111,23 @@ function NoteView({ note, title, status }) {
         </Card>
       )}
 
-      {note.status === 'failed' && <Failed note={note} onRetried={refreshed} />}
+      {(note.status === 'failed' || stuck) && <Failed note={note} onRetried={refreshed} />}
 
-      {note.status === 'ready' && note.ai_payload && <Parsed note={note} />}
+      <SaveConfirmation log={saved} />
+
+      {note.status === 'ready' &&
+        note.ai_payload &&
+        (note.call_log ? (
+          <SavedLog note={note} onUpdated={(log) => status.replace({ ...note, call_log: log })} />
+        ) : (
+          <ReviewForm
+            note={note}
+            onSaved={(log) => {
+              status.replace({ ...note, client: log.client, call_log: log })
+              setSaved(log)
+            }}
+          />
+        ))}
 
       {note.transcript && (
         <details className="group rounded-card border border-line bg-surface">
@@ -132,14 +144,45 @@ function NoteView({ note, title, status }) {
   )
 }
 
-function Steps({ status, transcribed }) {
+/** "Log saved · N tasks created", announced politely and focused, since the form that had focus is gone. */
+function SaveConfirmation({ log }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (log) ref.current?.focus()
+  }, [log])
+  const count = log?.tasks?.length ?? 0
+
+  return (
+    <div aria-live="polite">
+      {log && (
+        <div ref={ref} tabIndex={-1} className="mb-6 rounded-lg border border-positive/30 bg-positive-tint px-4 py-3 text-sm text-positive">
+          <p className="font-semibold">
+            Log saved · {count} {count === 1 ? 'task' : 'tasks'} created
+          </p>
+          <p className="mt-1 flex flex-wrap gap-x-4">
+            {log.client && (
+              <Link to={`/app/clients/${log.client.id}`} className="font-semibold underline underline-offset-2">
+                View {log.client.name}
+              </Link>
+            )}
+            <Link to="/app/tasks" className="font-semibold underline underline-offset-2">
+              Go to Tasks
+            </Link>
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Steps({ status, transcribed, stuck: stuckUpload }) {
   const current = status === 'failed' ? (transcribed ? 2 : 1) : (STEP_INDEX[status] ?? 0)
   return (
     <ol className="mb-6 grid grid-cols-4 gap-2" aria-label="Processing steps">
       {STEPS.map((label, i) => {
         const done = i < current || status === 'ready'
         const active = i === current && status !== 'ready'
-        const stuck = active && (status === 'awaiting_transcript' || status === 'failed')
+        const stuck = active && (status === 'awaiting_transcript' || status === 'failed' || stuckUpload)
         return (
           <li key={label} className="min-w-0" aria-current={active ? 'step' : undefined}>
             <div className={`h-1.5 rounded-full ${done ? 'bg-positive' : active ? (stuck ? 'bg-accent' : 'bg-warn motion-safe:animate-pulse') : 'bg-sunken'}`} />
@@ -173,8 +216,12 @@ function Failed({ note, onRetried }) {
 
   return (
     <>
-      <Alert tone="error" title="Processing didn't finish" className="mb-6">
-        <p>{note.error || 'Something went wrong while processing this note.'}</p>
+      <Alert tone="error" title={note.status === 'uploaded' ? 'Processing never started' : "Processing didn't finish"} className="mb-6">
+        <p>
+          {note.status === 'uploaded'
+            ? 'This note has been waiting in the queue for too long. It may have been uploaded while processing was unavailable.'
+            : note.error || 'Something went wrong while processing this note.'}
+        </p>
         {note.can_retry ? (
           <Button variant="secondary" className="mt-3" busy={busy} onClick={retry}>
             Try again
@@ -184,7 +231,7 @@ function Failed({ note, onRetried }) {
         )}
         {error && <p className="mt-2 font-semibold">{error}</p>}
       </Alert>
-      {!note.transcript && note.can_retry && (
+      {note.status === 'failed' && !note.transcript && note.can_retry && (
         <Card className="mb-6">
           <h2 className="text-2xl">Or type the transcript</h2>
           <p className="mt-1 text-sm text-muted">If the recording is hard to make out, type or paste what you said instead.</p>
@@ -251,106 +298,4 @@ function TranscriptForm({ noteId, onSubmitted }) {
       </Button>
     </form>
   )
-}
-
-function Parsed({ note }) {
-  const ai = note.ai_payload
-  return (
-    <div className="mb-6 grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <div className="min-w-0 space-y-6">
-        <Card>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-2xl">Summary</h2>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${SENTIMENT[ai.sentiment] ?? SENTIMENT.Neutral}`}>
-              <span className="sr-only">Client sentiment: </span>
-              {ai.sentiment}
-            </span>
-          </div>
-          <p className="mt-2 break-words leading-relaxed">{ai.summary}</p>
-          {ai.engine === 'rules' && (
-            <p className="mt-3 rounded-lg bg-warn-tint px-3 py-2 text-sm text-warn">Parsed with basic rules — review carefully.</p>
-          )}
-        </Card>
-
-        <Card>
-          <h2 className="text-2xl">Action items</h2>
-          {ai.action_items.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">No action items were found. Check the transcript below.</p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {ai.action_items.map((item, i) => (
-                <li key={i} className="flex items-start gap-3">
-                  <span aria-hidden="true" className="mt-1 size-4 shrink-0 rounded border-2 border-line-strong" />
-                  <span className="min-w-0 flex-1 break-words">{item.text}</span>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${item.owner === 'client' ? 'bg-brand-tint text-brand-strong' : 'bg-sunken text-ink'}`}
-                  >
-                    {item.owner === 'client' ? 'Client' : 'You'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
-
-      <div className="min-w-0 space-y-6">
-        <Card>
-          <h2 className="text-2xl">Follow-ups</h2>
-          {ai.follow_ups.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">No dates were mentioned.</p>
-          ) : (
-            <ul className="mt-3 space-y-3">
-              {ai.follow_ups.map((f, i) => (
-                <li key={i} className="min-w-0">
-                  <p className="font-semibold">
-                    <time dateTime={f.date}>{formatDay(f.date)}</time>
-                  </p>
-                  <p className="break-words text-sm text-muted">
-                    “{f.phrase}”{f.description && <> · {f.description}</>}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card>
-          <h2 className="text-2xl">Client</h2>
-          <ClientMatch note={note} />
-        </Card>
-      </div>
-    </div>
-  )
-}
-
-function ClientMatch({ note }) {
-  if (note.client) {
-    return <p className="mt-2 break-words">{note.client.name}</p>
-  }
-  if (note.suggested_client) {
-    return (
-      <>
-        <p className="mt-2 text-sm text-muted">Suggested from the names in this note:</p>
-        <p className="mt-1 break-words font-semibold">{note.suggested_client.name}</p>
-        <p className="mt-2 text-xs text-muted">Confirming the client is coming soon.</p>
-      </>
-    )
-  }
-  if (note.match_candidates.length > 0) {
-    return (
-      <>
-        <p className="mt-2 text-sm text-muted">This note could be about:</p>
-        <ul className="mt-1 list-disc space-y-1 pl-5">
-          {note.match_candidates.map((c) => (
-            <li key={c.id} className="break-words">
-              {c.name}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-2 text-xs text-muted">Choosing the client is coming soon.</p>
-      </>
-    )
-  }
-  return <p className="mt-2 text-sm text-muted">No client in your list was mentioned.</p>
 }

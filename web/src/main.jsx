@@ -18,6 +18,7 @@ const Notes = lazy(() => import('./pages/app/Notes'))
 const NoteDetail = lazy(() => import('./pages/app/NoteDetail'))
 const Clients = lazy(() => import('./pages/app/Clients'))
 const ClientForm = lazy(() => import('./pages/app/ClientForm'))
+const Tasks = lazy(() => import('./pages/app/Tasks'))
 const Team = lazy(() => import('./pages/app/Team'))
 
 function Root() {
@@ -70,6 +71,7 @@ const router = createBrowserRouter([
           { path: 'record', element: <Page><Record /></Page> },
           { path: 'notes', element: <Page><Notes /></Page> },
           { path: 'notes/:id', element: <Page><NoteDetail /></Page> },
+          { path: 'tasks', element: <Page><Tasks /></Page> },
           { path: 'clients', element: <Page><Clients /></Page> },
           { path: 'clients/new', element: <Page><ClientForm /></Page> },
           { path: 'clients/:id', element: <Page><ClientForm /></Page> },

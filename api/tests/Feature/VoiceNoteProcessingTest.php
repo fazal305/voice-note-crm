@@ -537,7 +537,7 @@ class VoiceNoteProcessingTest extends TestCase
 
         $this->postJson('/api/cron/run', [], ['Authorization' => 'Bearer a-long-random-secret'])
             ->assertOk()
-            ->assertJsonPath('prune', 'Pruned 0 demo voice note(s).');
+            ->assertJsonPath('prune', 'Pruned 0 demo voice note(s) and 0 task(s).');
     }
 
     public function test_prune_deletes_only_demo_notes_older_than_a_day_and_their_audio(): void
@@ -554,7 +554,7 @@ class VoiceNoteProcessingTest extends TestCase
         $this->travelTo('2026-10-14 10:00:00');
         $newDemo = VoiceNote::find($this->asUser($demoRep)->upload()->json('data.id'));
 
-        $this->artisan('voice-notes:prune-demo')->expectsOutput('Pruned 1 demo voice note(s).')->assertSuccessful();
+        $this->artisan('voice-notes:prune-demo')->expectsOutput('Pruned 1 demo voice note(s) and 0 task(s).')->assertSuccessful();
 
         $this->assertModelMissing($oldDemo);
         $this->assertFalse(Storage::disk('audio')->exists($oldDemo->storage_key));

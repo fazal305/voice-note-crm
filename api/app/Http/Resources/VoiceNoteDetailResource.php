@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\VoiceNoteStatus;
 use App\Models\Client;
 use App\Models\VoiceNote;
 use Illuminate\Http\Request;
@@ -25,7 +26,9 @@ class VoiceNoteDetailResource extends VoiceNoteResource
             'match_candidates' => $candidates,
             'processing_started_at' => $this->processing_started_at?->toIso8601String(),
             'processed_at' => $this->processed_at?->toIso8601String(),
-            'can_retry' => $this->attempts < VoiceNote::MAX_ATTEMPTS,
+            // A note still 'uploaded' can be retried only once it is stuck; until then its job may yet run.
+            'can_retry' => $this->attempts < VoiceNote::MAX_ATTEMPTS && ($this->status !== VoiceNoteStatus::Uploaded || $this->isStuck()),
+            'call_log' => $this->callLog ? new CallLogResource($this->callLog) : null,
         ]);
     }
 }

@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CallLogController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CronController;
+use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\VoiceNoteController;
 use Illuminate\Support\Facades\Route;
@@ -38,6 +40,19 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/voice-notes/{voiceNote}/retry', [VoiceNoteController::class, 'retry'])->middleware('throttle:processing');
         Route::post('/voice-notes/{voiceNote}/transcript', [VoiceNoteController::class, 'transcript'])->middleware('throttle:processing');
         Route::delete('/voice-notes/{voiceNote}', [VoiceNoteController::class, 'destroy']);
+        Route::post('/voice-notes/{voiceNote}/call-log', [CallLogController::class, 'store']);
+    });
+
+    Route::whereNumber('callLog')->group(function () {
+        Route::get('/call-logs/{callLog}', [CallLogController::class, 'show']);
+        Route::put('/call-logs/{callLog}', [CallLogController::class, 'update']);
+    });
+
+    Route::get('/tasks', [TaskController::class, 'index']);
+    Route::post('/tasks', [TaskController::class, 'store']);
+    Route::whereNumber('task')->group(function () {
+        Route::patch('/tasks/{task}', [TaskController::class, 'update']);
+        Route::delete('/tasks/{task}', [TaskController::class, 'destroy']);
     });
 
     Route::middleware('can:manage-team')->prefix('team')->group(function () {

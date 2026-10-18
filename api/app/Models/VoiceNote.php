@@ -7,6 +7,7 @@ use App\Enums\VoiceNoteStatus;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 // Nothing is mass assignable: every column is set by the app from validated input or the signed-in user.
 // storage_key is never sent to the client. The transcript and everything derived from it are encrypted at rest.
@@ -15,6 +16,9 @@ class VoiceNote extends Model
 {
     /** Processing runs allowed per note (the first run plus retries and manual transcripts). */
     public const MAX_ATTEMPTS = 5;
+
+    /** A note still 'uploaded' this long after processing began has lost its job (or predates the pipeline). */
+    public const STUCK_AFTER_MINUTES = 2;
 
     protected $guarded = ['*'];
 
@@ -52,5 +56,16 @@ class VoiceNote extends Model
     public function suggestedClient(): BelongsTo
     {
         return $this->belongsTo(Client::class, 'suggested_client_id');
+    }
+
+    public function callLog(): HasOne
+    {
+        return $this->hasOne(CallLog::class);
+    }
+
+    public function isStuck(): bool
+    {
+        return $this->status === VoiceNoteStatus::Uploaded
+            && ($this->processing_started_at ?? $this->created_at)?->lte(now()->subMinutes(self::STUCK_AFTER_MINUTES));
     }
 }

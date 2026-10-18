@@ -1,8 +1,19 @@
 import { useEffect, useId, useState } from 'react'
 import { api, errorMessage } from '../lib/api'
 
-/** Optional client for a note: a search box that narrows a plain select. "" means decide later. */
-export function ClientPicker({ value, onChange, error, disabled }) {
+/**
+ * A search box that narrows a plain select of the organization's clients. "" is the empty choice ("Decide later"
+ * unless `emptyLabel` says otherwise). `onChange(value, client)` also passes the chosen client, or null.
+ */
+export function ClientPicker({
+  value,
+  onChange,
+  error,
+  disabled,
+  legend = 'Client (optional)',
+  hint = 'Pick who this call was with, or decide later.',
+  emptyLabel = 'Decide later',
+}) {
   const id = useId()
   const [search, setSearch] = useState('')
   const [state, setState] = useState({ clients: [], loading: true, error: null })
@@ -31,8 +42,8 @@ export function ClientPicker({ value, onChange, error, disabled }) {
 
   return (
     <fieldset className="min-w-0" disabled={disabled}>
-      <legend className="text-sm font-semibold">Client (optional)</legend>
-      <p className="mt-0.5 text-xs text-muted">Pick who this call was with, or decide later.</p>
+      <legend className="text-sm font-semibold">{legend}</legend>
+      {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         <div className="min-w-0">
           <label htmlFor={`${id}-search`} className="sr-only">
@@ -58,12 +69,13 @@ export function ClientPicker({ value, onChange, error, disabled }) {
             aria-invalid={error ? true : undefined}
             aria-describedby={error || state.error ? `${id}-error` : undefined}
             onChange={(e) => {
-              setChosen(options.find((c) => String(c.id) === e.target.value) ?? null)
-              onChange(e.target.value)
+              const client = options.find((c) => String(c.id) === e.target.value) ?? null
+              setChosen(client)
+              onChange(e.target.value, client)
             }}
             className={`block w-full min-w-0 rounded-lg border bg-surface px-3 py-2.5 text-base focus:border-brand ${error ? 'border-danger' : 'border-line-strong'}`}
           >
-            <option value="">Decide later</option>
+            <option value="">{emptyLabel}</option>
             {options.map((client) => (
               <option key={client.id} value={String(client.id)}>
                 {client.company ? `${client.name} · ${client.company}` : client.name}

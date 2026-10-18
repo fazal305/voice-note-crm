@@ -8,6 +8,7 @@ import Forbidden from '../pages/public/Forbidden'
 const NAV = [
   { to: '/app/record', label: 'Record', icon: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21' },
   { to: '/app/notes', label: 'Notes', icon: 'M7 3.5h10A1.5 1.5 0 0 1 18.5 5v14a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5M9 8.5h6M9 12h6M9 15.5h3.5' },
+  { to: '/app/tasks', label: 'Tasks', icon: 'M9 6.5h10.5M9 12h10.5M9 17.5h10.5M4 6.5l1 1 2-2M4 12l1 1 2-2M4.5 17.5h1.5' },
   { to: '/app/clients', label: 'Clients', icon: 'M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 10.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6M20 19v-1.5a3.5 3.5 0 0 0-2.5-3.4M15.5 4.6a3 3 0 0 1 0 5.8' },
   { to: '/app/team', label: 'Team', managerOnly: true, icon: 'M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6zM9.5 12l2 2 3.5-4' },
 ]

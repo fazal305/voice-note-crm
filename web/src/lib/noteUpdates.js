@@ -4,6 +4,15 @@ import { api } from './api'
 /** Statuses after which a note won't change again without the user doing something. */
 export const SETTLED_STATUSES = new Set(['ready', 'failed', 'awaiting_transcript'])
 
+/** An 'uploaded' note the server says can be retried has lost its job: it won't move on by itself. */
+export function isStuck(note) {
+  return note.status === 'uploaded' && Boolean(note.can_retry)
+}
+
+export function isSettled(note) {
+  return SETTLED_STATUSES.has(note.status) || isStuck(note)
+}
+
 const FAST_MS = 2000
 const SLOW_MS = 5000
 const FAST_FOR_MS = 30000
@@ -37,7 +46,7 @@ export function watchNote(id, { onUpdate, onError }) {
       const res = await api.get(`/voice-notes/${id}`, { signal: controller.signal })
       if (stopped) return
       onUpdate(res.data.data)
-      if (SETTLED_STATUSES.has(res.data.data.status)) {
+      if (isSettled(res.data.data)) {
         stop()
         return
       }

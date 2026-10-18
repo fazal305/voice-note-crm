@@ -26,6 +26,9 @@ use Throwable;
 
 class VoiceNoteController extends Controller
 {
+    private const DETAIL_RELATIONS = ['client:id,name', 'user:id,name', 'suggestedClient:id,org_id,name', 'callLog.client:id,name', 'callLog.user:id,name',
+        'callLog.tasks.client:id,name', 'callLog.tasks.assignee:id,name', 'callLog.tasks.callLog:id,voice_note_id'];
+
     public function __construct(private AudioVault $vault) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -81,15 +84,19 @@ class VoiceNoteController extends Controller
     {
         Gate::authorize('view', $voiceNote);
 
-        return new VoiceNoteDetailResource($voiceNote->load(['client:id,name', 'user:id,name', 'suggestedClient:id,org_id,name']));
+        return new VoiceNoteDetailResource($voiceNote->load(self::DETAIL_RELATIONS));
     }
 
-    /** Runs processing again for a failed note: from the transcript if there is one, otherwise from the audio. */
+    /**
+     * Runs processing again for a failed note (from the transcript if there is one, otherwise from the audio), or
+     * for one stuck at 'uploaded' because its job was lost or it was uploaded before processing existed.
+     */
     public function retry(VoiceNote $voiceNote): JsonResponse
     {
         Gate::authorize('process', $voiceNote);
 
-        if ($voiceNote->status !== VoiceNoteStatus::Failed) {
+        $stuck = $voiceNote->isStuck();
+        if ($voiceNote->status !== VoiceNoteStatus::Failed && ! $stuck) {
             return response()->json(['message' => 'Only a note that failed can be retried.'], 409);
         }
         if ($voiceNote->attempts >= VoiceNote::MAX_ATTEMPTS) {
@@ -97,11 +104,17 @@ class VoiceNoteController extends Controller
         }
 
         $hasTranscript = $voiceNote->transcript !== null;
-        if (! $this->claim($voiceNote, [VoiceNoteStatus::Failed], $hasTranscript ? VoiceNoteStatus::Parsing : VoiceNoteStatus::Uploaded)) {
+        $claimed = $stuck
+            ? $this->claim($voiceNote, [VoiceNoteStatus::Uploaded], VoiceNoteStatus::Uploaded, fn ($query) => $query->where(
+                fn ($q) => $q->where('processing_started_at', '<=', now()->subMinutes(VoiceNote::STUCK_AFTER_MINUTES))
+                    ->orWhere(fn ($q) => $q->whereNull('processing_started_at')->where('created_at', '<=', now()->subMinutes(VoiceNote::STUCK_AFTER_MINUTES)))
+            ))
+            : $this->claim($voiceNote, [VoiceNoteStatus::Failed], $hasTranscript ? VoiceNoteStatus::Parsing : VoiceNoteStatus::Uploaded);
+        if (! $claimed) {
             return response()->json(['message' => 'This note is already being processed.'], 409);
         }
 
-        if ($hasTranscript) {
+        if ($hasTranscript && ! $stuck) {
             ParseVoiceNote::dispatch($voiceNote->id);
         } else {
             $this->dispatchChain($voiceNote);
@@ -170,12 +183,13 @@ class VoiceNoteController extends Controller
 
     /**
      * Moves the note from one of the given statuses to the next in a single conditional update, so a double
-     * click or two tabs can't start two paid processing runs.
+     * click or two tabs can't start two paid processing runs. `$also` adds conditions the row must still meet.
      */
-    private function claim(VoiceNote $note, array $from, VoiceNoteStatus $to): bool
+    private function claim(VoiceNote $note, array $from, VoiceNoteStatus $to, ?callable $also = null): bool
     {
         return VoiceNote::whereKey($note->id)
             ->whereIn('status', array_map(fn (VoiceNoteStatus $s) => $s->value, $from))
+            ->when($also, $also)
             ->where('attempts', '<', VoiceNote::MAX_ATTEMPTS)
             ->update([
                 'status' => $to->value,
@@ -188,7 +202,7 @@ class VoiceNoteController extends Controller
 
     private function detail(VoiceNote $note): JsonResponse
     {
-        $note->refresh()->load(['client:id,name', 'user:id,name', 'suggestedClient:id,org_id,name']);
+        $note->refresh()->load(self::DETAIL_RELATIONS);
 
         return (new VoiceNoteDetailResource($note))->response()->setStatusCode(202);
     }

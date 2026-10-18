@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ClientRequest;
 use App\Http\Resources\ClientResource;
+use App\Models\CallLog;
 use App\Models\Client;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -55,6 +56,10 @@ class ClientController extends Controller
     public function destroy(Client $client): JsonResponse
     {
         Gate::authorize('delete', $client);
+        // Saved call logs are the organization's call history, so a client that has them is kept.
+        if (CallLog::where('client_id', $client->id)->exists()) {
+            return response()->json(['message' => "This client has saved call logs, so it can't be deleted."], 409);
+        }
         $client->delete();
 
         return response()->json(null, 204);

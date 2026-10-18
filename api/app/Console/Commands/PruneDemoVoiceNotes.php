@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Organization;
+use App\Models\Task;
 use App\Models\VoiceNote;
 use App\Services\AudioVault;
 use Illuminate\Console\Attributes\Description;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 #[Signature('voice-notes:prune-demo')]
-#[Description('Delete demo-organization voice notes, and their audio, older than 24 hours')]
+#[Description('Delete demo-organization voice notes (with their audio and call logs) and tasks older than 24 hours')]
 class PruneDemoVoiceNotes extends Command
 {
     /**
@@ -40,7 +41,12 @@ class PruneDemoVoiceNotes extends Command
                 }
             });
 
-        $this->info("Pruned {$pruned} demo voice note(s).");
+        // A note's call log goes with it; tasks outlive their log, so they are pruned on their own.
+        $tasks = Task::whereIn('org_id', Organization::where('is_demo', true)->select('id'))
+            ->where('created_at', '<', now()->subHours(24))
+            ->delete();
+
+        $this->info("Pruned {$pruned} demo voice note(s) and {$tasks} task(s).");
 
         return self::SUCCESS;
     }

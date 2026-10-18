@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { errorMessage } from '../lib/api'
-import { SETTLED_STATUSES, watchNote } from '../lib/noteUpdates'
+import { isSettled, watchNote } from '../lib/noteUpdates'
 
 const SLOW_AFTER_MS = 20000
 
@@ -40,7 +40,7 @@ export function useNoteStatus(id) {
     error: stale ? null : state.error,
     notFound: !stale && Boolean(state.notFound),
     loading: stale || (state.loading && !note),
-    slow: state.slow && Boolean(note) && !SETTLED_STATUSES.has(note.status),
+    slow: state.slow && Boolean(note) && !isSettled(note),
     restart,
     replace,
   }

@@ -19,6 +19,12 @@ class VoiceNotePolicy
         return $this->ownerOrManager($user, $note);
     }
 
+    // Saving the reviewed call log for the note.
+    public function log(User $user, VoiceNote $note): Response
+    {
+        return $this->ownerOrManager($user, $note);
+    }
+
     public function delete(User $user, VoiceNote $note): Response
     {
         return $this->ownerOrManager($user, $note);

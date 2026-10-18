@@ -26,3 +26,9 @@ export function formatDay(ymd) {
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
   return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 }
+
+/** Today's calendar day on this device, as "2026-10-20". */
+export function localToday() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
