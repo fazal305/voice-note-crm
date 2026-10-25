@@ -9,6 +9,8 @@ import { RequireAuth, RequireManager } from './layouts/guards'
 import { Skeleton } from './components/ui'
 import { usePageMeta } from './hooks/usePageMeta'
 import NotFound from './pages/public/NotFound'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 
 // The app shell (navigation, upload queue) loads only once someone opens /app, so public pages stay light.
 const AppLayout = lazy(() => import('./layouts/AppLayout'))
@@ -103,5 +105,7 @@ const router = createBrowserRouter([
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <RouterProvider router={router} />
+    <Analytics />
+    <SpeedInsights />
   </StrictMode>,
 )
